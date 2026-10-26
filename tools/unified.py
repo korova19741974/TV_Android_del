@@ -89,6 +89,30 @@ def run_tv(command: str) -> str:
     return result.stdout
 
 
+def install_apk(apk: Path) -> str:
+    """Upload one local APK, install it for user 0, and remove the temporary copy."""
+    apk = apk.resolve()
+    if not apk.is_file() or apk.suffix.casefold() != ".apk":
+        raise SystemExit("choose an existing .apk file")
+    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
+                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
+    if python is None:
+        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
+    remote = "/data/local/tmp/cleanyourtv-install.apk"
+    base = [str(python), "-I", str(TOOLS / "tv.py")]
+    try:
+        pushed = subprocess.run(base + ["--push", str(apk), remote], capture_output=True, text=True)
+        if pushed.returncode:
+            raise SystemExit(pushed.stderr.strip() or pushed.stdout.strip() or "could not upload the APK")
+        installed = subprocess.run(base + ["pm", "install", "-r", "--user", "0", remote],
+                                   capture_output=True, text=True)
+        if installed.returncode:
+            raise SystemExit(installed.stderr.strip() or installed.stdout.strip() or "APK installation failed")
+        return installed.stdout.strip() or "Success"
+    finally:
+        subprocess.run(base + ["rm", "-f", remote], capture_output=True, text=True)
+
+
 def installed_from(text: str) -> list[str]:
     return [line.split(":", 1)[1].strip() for line in text.splitlines()
             if line.startswith("package:") and PACKAGE_RE.fullmatch(line.split(":", 1)[1].strip())]

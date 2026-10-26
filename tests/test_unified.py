@@ -72,6 +72,10 @@ class UnifiedPlanTest(unittest.TestCase):
         unified.write_config(out, ["com.example.keep"], ["183:sleep"], 6, "#101820")
         self.assertEqual(json.loads((out / "config.json").read_text())["background_color"], "#101820")
 
+    def test_apk_install_rejects_non_apk_before_connecting(self):
+        with self.assertRaises(SystemExit):
+            unified.install_apk(self.base / "notes.txt")
+
     def test_brand_scope_lists_only_xiaomi_profiles(self):
         self.assertIn("supported", unified.supported_platform_message("Xiaomi"))
         self.assertIn("Unsupported", unified.supported_platform_message("TCL"))
