@@ -66,21 +66,40 @@ jobs:
           path: desktop/dist-macos/*.dmg
           if-no-files-found: error
 
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build portable Windows application
+        shell: powershell
+        run: |
+          .\desktop\build-exe.ps1 -SkipToolPreparation
+          tar.exe -a -c -f ".\desktop\dist\CleanYourTV-windows-${{ github.ref_name }}.zip" -C .\desktop\dist CleanYourTV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CleanYourTV-windows
+          path: desktop/dist/CleanYourTV-windows-*.zip
+          if-no-files-found: error
+
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: macos-app
+    needs: [macos-app, windows-exe]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
-      - name: Publish DMG files
+      - name: Publish installers
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -t files < <(find release-assets -type f -name '*.dmg' -print)
+          mv release-assets/launcher-apk/app-release.apk "release-assets/CleanYourTV-launcher-${GITHUB_REF_NAME}.apk"
+          mapfile -t files < <(find release-assets -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.apk' \) -print)
           gh release create "${GITHUB_REF_NAME}" "${files[@]}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "CleanYourTV ${GITHUB_REF_NAME}" \
-            --notes "Графическая версия CleanYourTV для macOS. Выберите DMG для Intel или Apple Silicon." \
+            --notes "Установщики CleanYourTV для Windows и macOS, а также APK лаунчера для телевизора. Для Mac выберите DMG для Intel или Apple Silicon." \
             --verify-tag
