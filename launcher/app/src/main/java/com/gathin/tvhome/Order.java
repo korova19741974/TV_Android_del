@@ -117,6 +117,12 @@ final class Order {
         return Integer.compare(a, b);
     }
 
+    /** Recent launch first; original dock order is the stable tie-breaker for never-opened apps. */
+    static int compareRecent(long timeA, long timeB, int originalA, int originalB) {
+        int recent = Long.compare(timeB, timeA);
+        return recent != 0 ? recent : Integer.compare(originalA, originalB);
+    }
+
     // ---- file ------------------------------------------------------------------------------------
 
     static File file(Context ctx) {

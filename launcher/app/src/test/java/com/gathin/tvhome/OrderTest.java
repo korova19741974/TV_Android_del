@@ -106,4 +106,11 @@ public class OrderTest {
         });
         assertEquals(Arrays.asList("c/.C", "a/.A", "m/.M", "n/.N"), tiles);
     }
+
+    @Test
+    public void recentLaunchSortUsesOriginalOrderForTies() {
+        assertTrue(Order.compareRecent(10L, 5L, 3, 0) < 0);
+        assertTrue(Order.compareRecent(5L, 10L, 0, 3) > 0);
+        assertTrue(Order.compareRecent(0L, 0L, 0, 1) < 0);
+    }
 }

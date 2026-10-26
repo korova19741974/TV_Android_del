@@ -36,8 +36,8 @@ class CleanYourTVApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("CleanYourTV — помощник телевизора")
-        self.root.geometry("920x700")
-        self.root.minsize(820, 620)
+        self.root.geometry("920x750")
+        self.root.minsize(820, 680)
         self.root.configure(bg="#F8FAFC")
         self.apps: list[str] = []
         self.host = ""
@@ -52,6 +52,7 @@ class CleanYourTVApp:
         self.show_time_var = tk.BooleanVar(value=True)
         self.show_date_var = tk.BooleanVar(value=True)
         self.weather_city_var = tk.StringVar(value="Санкт-Петербург, Россия")
+        self.auto_sort_dock_var = tk.BooleanVar(value=True)
         self._build()
 
     def _build(self) -> None:
@@ -121,10 +122,13 @@ class CleanYourTVApp:
             row=3, column=1, columnspan=2, padx=10, sticky="w", pady=(10, 0))
         ttk.Label(settings, text="оставьте пустым, чтобы скрыть погоду", style="Body.TLabel").grid(
             row=3, column=3, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Checkbutton(settings, text="Автоматически сортировать док по последним запускам",
+                        variable=self.auto_sort_dock_var).grid(
+            row=4, column=0, columnspan=5, sticky="w", pady=(10, 0))
         ttk.Label(settings, text="Код кнопки сна (необязательно)", style="Body.TLabel").grid(
-            row=4, column=0, padx=(0, 10), sticky="w", pady=(10, 0))
+            row=5, column=0, padx=(0, 10), sticky="w", pady=(10, 0))
         ttk.Entry(settings, textvariable=self.sleep_key_var, width=10, font=("Segoe UI", 12)).grid(
-            row=4, column=1, sticky="w", pady=(10, 0))
+            row=5, column=1, sticky="w", pady=(10, 0))
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x")
@@ -239,6 +243,7 @@ class CleanYourTVApp:
                 self.show_time_var.get(),
                 self.show_date_var.get(),
                 self.weather_city_var.get(),
+                self.auto_sort_dock_var.get(),
             )
         except (SystemExit, ValueError) as exc:
             messagebox.showwarning("Проверьте настройки", str(exc))

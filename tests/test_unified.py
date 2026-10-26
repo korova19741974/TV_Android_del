@@ -74,11 +74,12 @@ class UnifiedPlanTest(unittest.TestCase):
 
     def test_config_accepts_simple_widgets(self):
         out = self.base / "widget-theme"
-        unified.write_config(out, ["com.example.keep"], [], 6, "#101820", False, True, "Moscow")
+        unified.write_config(out, ["com.example.keep"], [], 6, "#101820", False, True, "Moscow", True)
         config = json.loads((out / "config.json").read_text())
         self.assertFalse(config["show_time"])
         self.assertTrue(config["show_date"])
         self.assertEqual(config["weather_city"], "Moscow")
+        self.assertTrue(config["auto_sort_dock"])
 
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):

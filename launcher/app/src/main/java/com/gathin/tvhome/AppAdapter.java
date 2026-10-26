@@ -190,6 +190,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final boolean cinematic;
     /** Dock order (config.xml dock_apps, or a theme's config.json). */
     private final List<String> favourites;
+    /** Automatic order is local launch history only; a saved manual order still takes precedence. */
+    private final boolean autoSortDock;
     /** Grid apps fill the dock slots dock_apps leaves free (config.xml, fill_dock). */
     private final boolean fillDock;
     /** Dock apps found at the last reload, and the empty slots after them. */
@@ -222,7 +224,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.ctx = ctx;
         this.listener = listener;
         this.dockSize = dockSize;
-        this.favourites = cfg.dockApps;
+        this.favourites = new ArrayList<>(cfg.dockApps);
+        this.autoSortDock = cfg.autoSortDock;
+        if (autoSortDock) sortDockByRecentUse();
         this.fillDock = cfg.fillDock;
         this.hidden = new HashSet<>(cfg.hiddenApps);
         this.libraryPreload = new HashSet<>(cfg.libraryApps);
@@ -248,11 +252,19 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         setHasStableIds(true);
     }
 
+    private void sortDockByRecentUse() {
+        Map<String, Integer> original = new HashMap<>();
+        for (int i = 0; i < favourites.size(); i++) original.put(favourites.get(i), i);
+        Collections.sort(favourites, (a, b) -> Order.compareRecent(
+                LastOpened.get(ctx, a), LastOpened.get(ctx, b), original.get(a), original.get(b)));
+    }
+
     /**
      * Rebuilds the tiles. A shown module card stands in for every tile of its package (same component,
      * so focus follows it); hidden_apps wins over a card, and a card's package in dock_apps takes that slot.
      */
     void reload(List<Cards.Card> cards, List<ResolveInfo> leanback) {
+        if (autoSortDock && savedDocked < 0 && savedRanks.isEmpty()) sortDockByRecentUse();
         PackageManager pm = ctx.getPackageManager();
         // The LEANBACK query is shared with the module-card check (MainActivity); copy it before adding
         // library apps so the caller's list stays as it was.
