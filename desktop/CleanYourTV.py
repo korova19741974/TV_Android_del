@@ -299,7 +299,8 @@ class CleanYourTVApp:
         script = ROOT / "tools" / "theme.ps1"
         result = subprocess.run([powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                                  str(script), str(self.out), "-TvHost", self.host],
-                                cwd=ROOT, capture_output=True, text=True)
+                                cwd=ROOT, capture_output=True, text=True,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if result.returncode:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "не удалось отправить настройки")
         return result.stdout
@@ -319,7 +320,8 @@ class CleanYourTVApp:
             result = subprocess.run(
                 [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
                  "-TvHost", self.host, "-InputKeyService", "-HomeKeyService"],
-                cwd=ROOT, capture_output=True, text=True)
+                cwd=ROOT, capture_output=True, text=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             if result.returncode:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "сборка лаунчера не удалась")
             return result.stdout
