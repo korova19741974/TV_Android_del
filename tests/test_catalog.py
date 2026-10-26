@@ -5,7 +5,7 @@ from tools import catalog
 
 class CatalogTest(unittest.TestCase):
     def test_only_requested_profiles_are_allowed(self):
-        self.assertEqual(catalog.SUPPORTED_BRANDS, ("Xiaomi", "TCL"))
+        self.assertEqual(catalog.SUPPORTED_BRANDS, ("Xiaomi",))
         self.assertTrue(catalog.is_supported_profile({
             "brand": "Xiaomi", "tv": "Xiaomi Mi Box S", "os": "Android TV 12"
         }))
@@ -15,11 +15,8 @@ class CatalogTest(unittest.TestCase):
         self.assertFalse(catalog.is_supported_profile({
             "brand": "Xiaomi", "tv": "Xiaomi TV Stick 4K", "os": "Google TV 14"
         }))
-        self.assertTrue(catalog.is_supported_profile({
-            "brand": "TCL", "tv": "TCL 75P8K", "os": "Google TV 14"
-        }))
         self.assertFalse(catalog.is_supported_profile({
-            "brand": "TCL", "tv": "TCL 75T7 / 55Q77K", "os": "Google TV 14"
+            "brand": "TCL", "tv": "TCL 75C6K", "os": "Google TV 12"
         }))
 
 

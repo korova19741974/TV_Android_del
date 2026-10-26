@@ -59,8 +59,9 @@ class UnifiedPlanTest(unittest.TestCase):
             "columns": 6, "dock_apps": ["com.example.keep"], "app_keys": ["190:com.example.keep"]
         })
 
-    def test_brand_scope_lists_android_profiles(self):
-        self.assertIn("supported", unified.supported_platform_message("TCL"))
+    def test_brand_scope_lists_only_xiaomi_profiles(self):
+        self.assertIn("supported", unified.supported_platform_message("Xiaomi"))
+        self.assertIn("Unsupported", unified.supported_platform_message("TCL"))
 
 
 if __name__ == "__main__":

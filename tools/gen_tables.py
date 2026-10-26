@@ -5,7 +5,7 @@ Usage:
     python tools/gen_tables.py
     python tools/gen_tables.py --check
 
-Only selected Xiaomi and TCL Android TV / Google TV profiles are accepted.
+Only selected Xiaomi Android TV / Google TV profiles are accepted.
 """
 import argparse
 import json
@@ -67,8 +67,7 @@ def load(root: Path) -> list[tuple[str, dict]]:
             problems += check_cell(where, "readme_os", data["readme_os"])
         if not is_supported_profile(data):
             problems.append(
-                f"{where}: profile is outside this fork's scope: Xiaomi Mi/TV Box or Android 14 TVs; "
-                "TCL at 75 inches or with no stated diagonal"
+                f"{where}: profile is outside this fork's scope: Xiaomi Mi/TV Box or Android 14 TVs"
             )
         entries.append((folder.name, data))
     if problems:

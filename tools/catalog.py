@@ -1,9 +1,6 @@
 """Profile scope for this compact Android TV-focused fork."""
 
-import re
-
-SUPPORTED_BRANDS = ("Xiaomi", "TCL")
-TCL_DIAGONAL = re.compile(r'(?<!\d)(32|40|43|50|55|65|75|85|100)(?=(?:["″]|[A-Z]))')
+SUPPORTED_BRANDS = ("Xiaomi",)
 
 
 def is_supported_profile(profile: dict) -> bool:
@@ -13,9 +10,6 @@ def is_supported_profile(profile: dict) -> bool:
     os_name = profile.get("os", "")
     if not isinstance(brand, str) or not isinstance(tv, str) or not isinstance(os_name, str):
         return False
-    if brand == "TCL":
-        sizes = TCL_DIAGONAL.findall(tv)
-        return not sizes or set(sizes) == {"75"}
     if brand == "Xiaomi":
         name = tv.casefold()
         is_box = "mi box" in name or "tv box" in name
