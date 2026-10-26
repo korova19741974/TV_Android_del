@@ -127,6 +127,18 @@ class UnifiedPlanTest(unittest.TestCase):
             self.assertEqual(unified.install_apk(apk), "Success")
         self.assertEqual(run.call_count, 3)
 
+    def test_apk_install_rejects_mixed_success_and_failure_output(self):
+        apk = self.base / "conflicting.apk"
+        apk.write_bytes(b"test fixture")
+        responses = [
+            subprocess.CompletedProcess([], 0, "pushed", ""),
+            subprocess.CompletedProcess([], 0, "Success\nFailure [INSTALL_FAILED_ABORTED]", ""),
+            subprocess.CompletedProcess([], 0, "", ""),
+        ]
+        with mock.patch.object(unified.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(SystemExit, "INSTALL_FAILED_ABORTED"):
+                unified.install_apk(apk)
+
     def test_brand_scope_lists_only_xiaomi_profiles(self):
         self.assertIn("supported", unified.supported_platform_message("Xiaomi"))
         self.assertIn("Unsupported", unified.supported_platform_message("TCL"))

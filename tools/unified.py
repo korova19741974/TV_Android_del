@@ -156,7 +156,8 @@ def install_apk(apk: Path) -> str:
         install_output = "\n".join(
             part.strip() for part in (installed.stdout, installed.stderr) if part.strip()
         )
-        if installed.returncode or not re.search(r"(?m)^\s*Success\s*$", install_output):
+        failed = re.search(r"(?im)(?:^\s*(?:Failure|Error)\b|INSTALL_FAILED_)", install_output)
+        if installed.returncode or failed or not re.search(r"(?m)^\s*Success\s*$", install_output):
             raise SystemExit(install_output or "APK installation failed")
         return install_output
     finally:

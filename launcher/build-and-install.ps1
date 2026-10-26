@@ -28,11 +28,16 @@ $recoveryPython = $py -replace '^\.\.[\\/]', ''
 
 # Reject an incompatible TV before downloading build tools or compiling and uploading the APK.
 $minSdkMatch = Select-String -Path 'app\build.gradle' -Pattern '^\s*minSdk\s+(\d{1,3})\s*$' | Select-Object -First 1
-$minSdk = if ($minSdkMatch) { [int]$minSdkMatch.Matches[0].Groups[1].Value } else { 0 }
-$tvSdkLine = @(& $py -I ..\tools\tv.py 'getprop ro.build.version.sdk' 2>$null) |
+$minSdk = if ($minSdkMatch) { [int]$minSdkMatch.Matches[0].Groups[1].Value } else { throw 'Could not read minSdk from app\build.gradle.' }
+$tvSdkOutput = @(& $py -I ..\tools\tv.py 'getprop ro.build.version.sdk' 2>$null)
+$tvSdkExit = $LASTEXITCODE
+$tvSdkLine = $tvSdkOutput |
     Where-Object { "$_" -match '^\s*\d+\s*$' } | Select-Object -Last 1
-$tvSdk = if ($tvSdkLine) { [int]"$tvSdkLine".Trim() } else { 0 }
-if ($minSdk -gt 0 -and $tvSdk -gt 0 -and $tvSdk -lt $minSdk) {
+if ($tvSdkExit -ne 0 -or -not $tvSdkLine) {
+    throw 'Could not read the Android SDK version from the TV. Check its address, network debugging and the confirmation prompt.'
+}
+$tvSdk = [int]("$tvSdkLine".Trim())
+if ($tvSdk -lt $minSdk) {
     throw "This TV runs SDK $tvSdk, but the launcher requires SDK $minSdk or newer (INSTALL_FAILED_OLDER_SDK). Nothing was built, uploaded or disabled."
 }
 

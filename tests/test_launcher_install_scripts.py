@@ -16,6 +16,8 @@ class PowerShellLauncherInstallerTest(unittest.TestCase):
         gradle_build = self.script.index(".\\gradlew.bat assembleRelease")
         self.assertLess(sdk_check, gradle_build)
         self.assertIn("INSTALL_FAILED_OLDER_SDK", self.script)
+        self.assertIn("$tvSdkExit = $LASTEXITCODE", self.script)
+        self.assertIn("if ($tvSdkExit -ne 0 -or -not $tvSdkLine)", self.script)
 
     def test_validates_launcher_before_setting_home(self):
         launcher_start = self.script.index("am start -W -a android.intent.action.MAIN")
