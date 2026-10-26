@@ -35,7 +35,7 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 
 /**
- * Module cards (docs/specs/card.md): an installed app can declare a card for its tile, with its own
+ * Module cards: an installed app can declare a card for its tile, with its own
  * label, caption and glow colour. Nothing is shown until the TV owner says so on the prompt; the
  * decision is pinned to the app's signing certificate in the launcher's private storage.
  *
@@ -50,7 +50,7 @@ import java.util.function.Supplier;
  */
 final class Cards {
 
-    /** One place for the names a module declares; see docs/specs/card.md. */
+    /** One place for the names a module declares. */
     static final String CATEGORY = "com.gathin.tvhome.category.DOCK_CARD";
     static final String META_DATA = "com.gathin.tvhome.card";
     static final int SPEC_SUPPORTED = 1;

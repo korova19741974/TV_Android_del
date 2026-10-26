@@ -30,8 +30,8 @@ import java.util.Set;
  * The launcher's settings: the values in res/values/config.xml, with an optional overlay read from
  * {@code config.json} in the app's external files directory
  * ({@code /sdcard/Android/data/com.gathin.tvhome/files/}). Every key in the JSON is optional and an
- * unknown or badly typed key is ignored, so a theme can change the dock and the look without a rebuild:
- * {@code tools/theme.sh themes/<name>} pushes a theme folder there and restarts Home.
+ * unknown or badly typed key is ignored, so a configuration can change the dock and the look without a rebuild:
+ * {@code tools/theme.sh work/my-tv} pushes a configuration folder there and restarts Home.
  *
  * Read once in {@link MainActivity#onCreate}; nothing here touches the network.
  */
@@ -75,8 +75,6 @@ final class Config {
     final String sourcePanelAction;
     /** One int extra for the source panel, "name=value" (config.xml source_panel_extra); empty for none. */
     final String sourcePanelExtra;
-    /** List Coocaa OS sources from com.skyworth.tv in the Inputs menu (config.xml coocaa_sources). */
-    final boolean coocaaSources;
     final String inputAction;
     /** Vendor source numbers for passthrough inputs (config.xml or theme input_sources). */
     final List<String> inputSources;
@@ -260,7 +258,7 @@ final class Config {
     private Config(List<String> dockApps, boolean fillDock, List<String> hiddenApps, List<String> libraryApps, String liveTvPackage,
                    String liveTvAction, String liveTvInputId, Map<String, String> launchActions, Map<String, String> appLabels,
                    Map<String, String> appBanners, String sourcePanelService, String sourcePanelAction,
-                   String sourcePanelExtra, boolean coocaaSources, String inputAction, List<String> inputSources,
+                   String sourcePanelExtra, String inputAction, List<String> inputSources,
                    String inputUriScheme, int columns, int rowsBelowDock, boolean animations, boolean advancedEffects,
                    boolean shamsiDate, String greetingName, boolean moduleCards, boolean reducedMotion, boolean bootToLiveTv, boolean openOnStartChoice, boolean dockTitle, boolean dockRow, boolean topMenu, boolean launcherSettingsButton, boolean reorderButton, boolean showNetworkPill, boolean showInputsPill, boolean iconOnlyButtons, boolean iconOnlyInputs, boolean libraryButton, boolean showLibraryPill, int wifiLabelWidth, boolean alwaysShowNames, boolean wallpaperTrueColor, boolean focusOvershoot, String vpnApp,
                    boolean showHomeSettingsShortcut, boolean showStats, boolean appLibrary, boolean appLibrarySelection, boolean libraryOkOpens, boolean uniformTiles, int backgroundColor, int skyIntensity,
@@ -290,7 +288,6 @@ final class Config {
         this.sourcePanelService = sourcePanelService;
         this.sourcePanelAction = sourcePanelAction;
         this.sourcePanelExtra = sourcePanelExtra;
-        this.coocaaSources = coocaaSources;
         this.inputAction = inputAction;
         this.inputSources = Collections.unmodifiableList(inputSources);
         this.inputUriScheme = inputUriScheme;
@@ -412,7 +409,6 @@ final class Config {
         String panelService = res.getString(R.string.source_panel_service).trim();
         String panelAction = res.getString(R.string.source_panel_action).trim();
         String panelExtra = res.getString(R.string.source_panel_extra).trim();
-        boolean coocaaSources = res.getBoolean(R.bool.coocaa_sources);
         String inputAction = res.getString(R.string.input_action).trim();
         List<String> inputSources = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.input_sources)));
         String inputUriScheme = res.getString(R.string.input_uri_scheme).trim();
@@ -516,7 +512,6 @@ final class Config {
             panelService = string(json, "source_panel_service", panelService);
             panelAction = string(json, "source_panel_action", panelAction);
             panelExtra = string(json, "source_panel_extra", panelExtra).trim();
-            coocaaSources = bool(json, "coocaa_sources", coocaaSources);
             inputAction = string(json, "input_action", inputAction);
             inputSources = stringList(json, "input_sources", inputSources);
             inputUriScheme = string(json, "input_uri_scheme", inputUriScheme).trim();
@@ -648,7 +643,7 @@ final class Config {
                 string(json, "festival_until", ""), string(json, "greeting", ""), string(json, "accent_color", ""));
 
         return new Config(dock, fillDock, hidden, libraryApps, liveTv, liveTvAction, liveTvInputId, packageMap(launchActions), packageMap(appLabels),
-                packageMap(appBanners), panelService, panelAction, panelExtra, coocaaSources, inputAction, inputSources, inputUriScheme, Math.max(1, columns),
+                packageMap(appBanners), panelService, panelAction, panelExtra, inputAction, inputSources, inputUriScheme, Math.max(1, columns),
                 Math.max(0, rowsBelow), animations, advancedEffects, shamsi, greetingName, moduleCards, reducedMotion, bootToLiveTv,
                 openOnStartChoice, dockTitle, dockRow, topMenu, launcherSettingsButton, reorderButton, showNetworkPill, showInputsPill,
                 iconOnlyButtons, iconOnlyInputs, libraryButton, showLibraryPill, wifiLabelWidth, alwaysShowNames, wallpaperTrueColor, focusOvershoot,

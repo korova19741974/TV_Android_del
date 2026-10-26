@@ -9,7 +9,7 @@ import android.net.Uri;
 import android.provider.Settings;
 
 /** The standard settings intent, or, when nothing usable answers it, the first vendor settings entry
- *  from settings_fallback_components that is installed (Xiaomi China, TCL / FFALCON, Fire OS). */
+ *  from settings_fallback_components that is installed (Xiaomi China or TCL). */
 final class SystemSettings {
     private SystemSettings() {}
 
@@ -17,9 +17,7 @@ final class SystemSettings {
         PackageManager pm = context.getPackageManager();
         Intent standard = new Intent(action);
         ResolveInfo resolved = pm.resolveActivity(standard, PackageManager.MATCH_DEFAULT_ONLY);
-        // Fire OS resolves the standard actions to a CTS compliance stub that opens nothing;
-        // treat it as missing so the vendor fallback runs.
-        if (resolved != null && !resolved.activityInfo.name.contains("CTSDummy")) return standard;
+        if (resolved != null) return standard;
         Intent vendor = vendorIntent(context);
         return vendor != null ? vendor : standard;
     }

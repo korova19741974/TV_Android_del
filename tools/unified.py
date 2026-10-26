@@ -41,6 +41,7 @@ DEVICE_KEYS = (
 
 sys.path.insert(0, str(TOOLS))
 import recovery  # noqa: E402
+from catalog import SUPPORTED_BRANDS  # noqa: E402
 
 
 def package_lines(text: str) -> list[str]:
@@ -124,6 +125,13 @@ def scan(out_dir: Path) -> int:
     if data["adb_secure"] == "0":
         print("WARNING: ro.adb.secure=0; network ADB is unauthenticated until debugging is disabled.")
     return 0
+
+
+def supported_platform_message(brand: str) -> str:
+    """State the Android/Google TV brands this compact fork supports."""
+    if brand in SUPPORTED_BRANDS:
+        return f"{brand} Android/Google TV profiles are supported."
+    return f"Unsupported brand. Supported brands: {', '.join(SUPPORTED_BRANDS)}."
 
 
 def load_scan(path: Path) -> dict:
@@ -265,6 +273,8 @@ def parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
     scan_p = sub.add_parser("scan", help="read a TV without changing it")
     scan_p.add_argument("--out", type=Path, required=True)
+    scope = sub.add_parser("scope", help="show whether a TV brand is supported")
+    scope.add_argument("brand", choices=SUPPORTED_BRANDS)
     plan = sub.add_parser("plan", help="make a review-only or explicitly approved disable plan")
     plan.add_argument("--scan", type=Path, required=True)
     plan.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
@@ -292,6 +302,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "scan":
         return scan(args.out)
+    if args.command == "scope":
+        print(supported_platform_message(args.brand))
+        return 0
     if args.command == "plan":
         return write_plan(args.scan, args.out, args.reference, args.keep, args.approve,
                           args.acknowledge_mismatch)

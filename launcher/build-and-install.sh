@@ -18,7 +18,7 @@ if [ -n "$MIN_SDK" ] && [ -n "$TV_SDK" ] && [ "$TV_SDK" -lt "$MIN_SDK" ]; then
   echo "ERROR: this TV runs SDK $TV_SDK and the launcher is built with minSdk $MIN_SDK (app/build.gradle)," >&2
   echo "so pm install would answer INSTALL_FAILED_OLDER_SDK. Nothing was built, pushed or disabled." >&2
   echo "The debloat half of the repo still applies to that set, from its own home screen; the launcher" >&2
-  echo "half would need your own build with a lower minSdk (docs/TROUBLESHOOTING.md)." >&2
+  echo "half would need your own build with a lower minSdk." >&2
   exit 1
 fi
 # macOS: java_home or Homebrew; Linux: the java on PATH.
@@ -108,7 +108,7 @@ case "$OUT" in
     # The pre-flight above missed it (a TV whose getprop did not answer, or an APK built elsewhere):
     # name the real cause instead of leaving the raw Failure line to be read as an ADB problem.
     echo "ERROR: pm install refused the APK as too new for this set (INSTALL_FAILED_OLDER_SDK): the TV runs an older SDK than the launcher's minSdk ${MIN_SDK:-in app/build.gradle}." >&2
-    echo "The stock launcher was left untouched. Read both numbers and see docs/TROUBLESHOOTING.md." >&2
+    echo "The stock launcher was left untouched. Read both numbers before continuing." >&2
     exit 1 ;;
   *) echo "ERROR: pm install failed; the stock launcher was left untouched." >&2; exit 1 ;;
 esac

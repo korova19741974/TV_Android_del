@@ -86,7 +86,7 @@ ADB_SECURE="$("$PY" -I tools/tv.py "getprop ro.adb.secure" 2>/dev/null | tr -d '
 
 # Home guard (#239): a list that disables the app owning Home leaves the TV with nothing to start the
 # next time Home is pressed, and on Google TV the setup wizard can take the category instead and
-# crash-loop system_server (docs/TROUBLESHOOTING.md). Skip the owner while nothing else on the TV can
+# crash-loop system_server. Skip the owner while nothing else on the TV can
 # answer HOME; FORCE_HOME=1 disables it anyway, for a TV reachable another way.
 HOME_QUERY='cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME'
 CLAIM_QUERY='cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME'
@@ -312,7 +312,7 @@ if [ -n "$PKGS" ]; then
         echo "above), or the change did not hold. Do not run the list again in a loop. Run"
         echo "tools/tv.py 'pm disable-user --user 0 <package>' once by hand for each, or the list once"
         echo "more after a reboot. If every listed package stays enabled, this firmware refuses"
-        echo "pm disable-user: stop there and say so (docs/TROUBLESHOOTING.md,"
+        echo "pm disable-user: stop there and say so (see README.md,"
         echo "\"Every way of disabling a package is refused\")."; } >&2
     fi
   fi

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Launcher configuration. Edit this file, then run launcher/build-and-install.sh.
-  Or leave it and push a theme instead: tools/theme.sh themes/<name> puts a config.json (same keys, see
-  themes/README.md) and an optional wallpaper on the TV, and the launcher overlays it at start.
+  Or create config.json with tools/unified.py config and push it with tools/theme.sh; the launcher overlays it
+  at start.
   Package names: on the TV run `pm list packages` (tools/tv.py 'pm list packages').
 -->
 <resources>
@@ -12,7 +12,6 @@
     <string-array name="settings_fallback_components" translatable="false">
         <item>com.xiaomi.mitv.settings/com.xiaomi.mitv.settings.entry.MainActivity</item>
         <item>com.tcl.settings/com.tcl.settings.ui.MainActivity</item>
-        <item>com.amazon.tv.launcher/com.amazon.tv.launcher.ui.MainSettingsActivity</item>
     </string-array>
 
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
@@ -58,7 +57,7 @@
          OEM passthrough route. If the ID is absent or the app cannot handle the collection, open
          the Live TV app normally instead of selecting a different input. A wrong but registered ID
          can open the app's tuner setup screen instead; that is not detected as a fallback condition.
-         Use a verified input ID, or leave this empty. See docs/devices/haam-r4.md. -->
+         Use a verified input ID, or leave this empty. -->
     <string name="live_tv_input_id" translatable="false"></string>
 
     <!-- Tiles that open a screen of the app instead of its start screen: "package=action", sent to that package.
@@ -78,24 +77,16 @@
     <!-- TVs with no TvInputManager have no HDMI list to read, but their own source-selection panel
          still switches inputs (TCL Android TV 9 again). When nothing could be listed, the Inputs menu
          offers one row that starts this service: component first, then action. The component can also be an
-         activity, for sets whose panel is a dialog (BYINTEK U4). With no Live TV app either, the Inputs pill
+         activity. With no Live TV app either, the Inputs pill
          opens the panel directly instead of a menu. Leave empty to omit. -->
     <string name="source_panel_service" translatable="false"></string>
     <string name="source_panel_action" translatable="false"></string>
-    <!-- One int extra sent with the source panel intent, "name=value". Coocaa OS (Skyworth, China) needs
-         control_center_command=100 for its control center to open on the source row, as the remote's
-         Source button does. Leave empty to omit. -->
+    <!-- One int extra sent with the source panel intent, "name=value". Leave empty to omit. -->
     <string name="source_panel_extra" translatable="false"></string>
-
-    <!-- Coocaa OS (Skyworth, China) registers no inputs with TvInputManager; com.skyworth.tv lists its
-         sources (HDMI 1, HDMI 2, AV, the tuner) through its own provider instead. true: show those in the
-         Inputs menu and switch with com.skyworth.tv, ahead of the source panel above, which stays as the
-         fallback. See CoocaaSources and examples/skyworth-7s60-a5. -->
-    <bool name="coocaa_sources">false</bool>
 
     <!-- Inputs menu: HDMI and AV rows normally open with ACTION_VIEW on the input's channel URI, which the
          Live TV app handles. Where nothing answers that, this action is sent with the same URI instead
-         (XGIMI projectors: com.xgimi.action.hdmiPlayer). Leave empty to omit. -->
+         Leave empty to omit. -->
     <string name="input_action" translatable="false"></string>
     <!-- Inputs menu: a scheme to send the input's passthrough URI with instead of content:// (and no channel MIME
          type). YaOS: live-tv. Its source player answers live-tv://android.media.tv/passthrough/<input>, while the
@@ -109,8 +100,7 @@
     <bool name="key_filter">true</bool>
 
     <!-- With key_filter on, true makes HomeKeyService and InputKeyService stop filtering keys while a game
-         controller is connected, so games see its buttons (Steam Link with an Xbox controller on a TCL G07
-         did not; Moonlight with two controllers put both on player 1, docs/TROUBLESHOOTING.md). The price: the
+         controller is connected, so games see its buttons. The price: the
          remote buttons below do nothing until the controller disconnects. A voice
          remote that reports a joystick does not count. A theme can set it ("gamepad_passthrough"). -->
     <bool name="gamepad_passthrough">false</bool>
@@ -199,8 +189,7 @@
     <string-array name="app_keys" translatable="false">
     </string-array>
 
-    <!-- Package of the stock launcher, for TVs whose firmware turns it back on after it was disabled. XGIMI's
-         com.xgimi.xrmservice does, on every one of its remote keys, power included (docs/TROUBLESHOOTING.md).
+    <!-- Package of the stock launcher, for TVs whose firmware turns it back on after it was disabled.
          Whenever that launcher's home screen comes up anyway, HomeKeyService (HOME_KEY_SERVICE=1) sends the TV
          straight back here. A theme's config.json can set it too. Leave empty to omit. -->
     <string name="stock_home_redirect" translatable="false"></string>
@@ -384,7 +373,7 @@
     <string-array name="library_apps" translatable="false">
     </string-array>
 
-    <!-- Module cards: an app that declares a card (docs/specs/card.md) can stand in for its tile with its own
+    <!-- Module cards: an app can stand in for its tile with its own
          label, caption and glow colour, once you answer Show on the prompt. false: never look for cards or ask. -->
     <bool name="module_cards">true</bool>
 
