@@ -38,6 +38,9 @@
         <intent>
             <action android:name="android.settings.MANAGE_APPLICATIONS_SETTINGS" />
         </intent>
+        <intent>
+            <action android:name="android.settings.BLUETOOTH_SETTINGS" />
+        </intent>
         <!-- The tile menu and the app library offer App info only where this resolves (SystemSettings.appInfo). -->
         <intent>
             <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />

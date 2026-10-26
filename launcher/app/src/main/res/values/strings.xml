@@ -91,13 +91,27 @@
     <string name="tv_settings">Системные настройки ТВ</string>
     <string name="quick_picture">Экран</string>
     <string name="quick_network">Сеть</string>
+    <string name="quick_bluetooth">Bluetooth</string>
     <string name="quick_apps">Приложения</string>
     <string name="quick_apps_hint">Включить снова</string>
     <string name="on">Вкл.</string>
     <string name="off">Выкл.</string>
     <string name="enable">Включить</string>
     <string name="dock_edit">Изменить док</string>
-    <string name="power_menu">Перезагрузить…</string>
+    <string name="power_menu">Питание</string>
+    <string name="power_unavailable">Кнопка питания недоступна: включите помощник кнопок.</string>
+    <string name="sleep_timer">Таймер сна</string>
+    <string name="sleep_timer_off">Таймер сна выключен</string>
+    <string name="sleep_timer_set">Экран выключится по таймеру</string>
+    <string name="sleep_timer_unavailable">Для таймера нужно включить помощник кнопок при установке лаунчера.</string>
+    <string-array name="sleep_timer_choices">
+        <item>Выключен</item>
+        <item>Через 15 минут</item>
+        <item>Через 30 минут</item>
+        <item>Через 1 час</item>
+        <item>Через 1 час 30 минут</item>
+        <item>Через 2 часа</item>
+    </string-array>
     <string name="dock_edit_hint">Выберите место в доке и нажмите ОК. Назад — готово.</string>
     <string name="dock_edit_pick_app">Теперь выберите приложение для этого места и нажмите ОК. Назад — выбрать другое место.</string>
     <string name="tile_add_to_dock">Добавить в док</string>

@@ -56,6 +56,7 @@ def tool_command(script: str, *args: str) -> list[str]:
     return tool_python() + ["-I", str(TOOLS / script), *args]
 PACKAGE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
 COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
+MAX_DOCK_APPS = 12
 DEFAULT_REFERENCE = ROOT / "examples" / "xiaomi-tv-a-pro-2026" / "debloat.txt"
 DEVICE_KEYS = (
     "model",
@@ -310,6 +311,8 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
                  background: str = "", show_time: bool | None = None,
                  show_date: bool | None = None, weather_city: str | None = None,
                  auto_sort_dock: bool | None = None) -> int:
+    if len(dock) > MAX_DOCK_APPS:
+        raise SystemExit(f"можно выбрать не более {MAX_DOCK_APPS} приложений")
     for name in dock:
         if not PACKAGE_RE.fullmatch(name):
             raise SystemExit(f"not a dock package name: {name!r}")
@@ -321,7 +324,7 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
     if background and not COLOR_RE.fullmatch(background):
         raise SystemExit("--background must be a colour such as #101820")
     out_dir.mkdir(parents=True, exist_ok=True)
-    config = {"columns": columns, "dock_apps": dock, "app_keys": app_keys}
+    config = {"columns": columns, "dock_apps": dock[:MAX_DOCK_APPS], "app_keys": app_keys}
     if background:
         config["background_color"] = background
     if show_time is not None:

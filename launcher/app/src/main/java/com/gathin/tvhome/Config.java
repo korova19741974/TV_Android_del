@@ -36,6 +36,7 @@ import java.util.Set;
  * Read once in {@link MainActivity#onCreate}; nothing here touches the network.
  */
 final class Config {
+    static final int MAX_DOCK_APPS = 12;
     private static final String TAG = "TvHome.Config";
     static final String FILE_NAME = "config.json";
     static final String WALLPAPER_NAME = "wallpaper.jpg";
@@ -246,7 +247,7 @@ final class Config {
     final boolean showDate;
     /** City used by the optional lightweight weather widget (theme weather_city). */
     final String weatherCity;
-    /** Sorts the six dock positions by the launch history recorded by this launcher. */
+    /** Sorts the configured dock apps by the launch history recorded by this launcher. */
     final boolean autoSortDock;
     /** The date and the line between it and the clock in the clock's full white instead of dimmed (config.xml, header_white). */
     final boolean headerWhite;
@@ -405,7 +406,7 @@ final class Config {
 
     static Config load(Context ctx) {
         Resources res = ctx.getResources();
-        List<String> dock = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.dock_apps)));
+        List<String> dock = limitDockApps(Arrays.asList(res.getStringArray(R.array.dock_apps)));
         boolean fillDock = res.getBoolean(R.bool.fill_dock);
         List<String> hidden = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.hidden_apps)));
         List<String> libraryApps = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.library_apps)));
@@ -511,7 +512,7 @@ final class Config {
         JSONObject json = readOverlay(ctx, file, mounted);
         if (json != null) {
             applied = true;
-            dock = stringList(json, "dock_apps", dock);
+            dock = limitDockApps(stringList(json, "dock_apps", dock));
             fillDock = bool(json, "fill_dock", fillDock);
             hidden = stringList(json, "hidden_apps", hidden);
             libraryApps = stringList(json, "library_apps", libraryApps);
@@ -671,6 +672,12 @@ final class Config {
                 consumeVolumeKeys, powerOnHome, homeLongPressHome, wifiStatusWarnings, topBarApps, showGreeting, showTime, showDate, weatherCity, autoSortDock, headerWhite, clockWallpaper,
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
                 dateBelowClock, vpnPill, powerOnHomeAlways);
+    }
+
+    /** Keeps a pushed theme bounded so a broken or hand-edited file cannot make Home build an unbounded dock. */
+    static List<String> limitDockApps(List<String> apps) {
+        if (apps == null || apps.isEmpty()) return new ArrayList<>();
+        return new ArrayList<>(apps.subList(0, Math.min(MAX_DOCK_APPS, apps.size())));
     }
 
     /**

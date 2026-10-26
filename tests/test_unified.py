@@ -85,6 +85,16 @@ class UnifiedPlanTest(unittest.TestCase):
         self.assertEqual(config["weather_city"], "Moscow")
         self.assertTrue(config["auto_sort_dock"])
 
+    def test_config_accepts_at_most_twelve_home_apps(self):
+        out = self.base / "twelve-apps"
+        apps = [f"com.example.app{i}" for i in range(12)]
+        unified.write_config(out, apps, [], 6)
+        self.assertEqual(json.loads((out / "config.json").read_text())["dock_apps"], apps)
+
+    def test_config_rejects_a_thirteenth_home_app(self):
+        with self.assertRaisesRegex(SystemExit, "не более 12"):
+            unified.write_config(self.base / "too-many", [f"com.example.app{i}" for i in range(13)], [], 6)
+
     def test_empty_weather_city_is_written_as_hidden_widget(self):
         out = self.base / "no-weather-theme"
         unified.write_config(out, ["com.example.keep"], [], 6, weather_city="")

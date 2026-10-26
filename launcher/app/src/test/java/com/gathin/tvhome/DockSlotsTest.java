@@ -66,6 +66,11 @@ public class DockSlotsTest {
         assertEquals(0, DockSlots.empty(6, 6, 20, false));
     }
 
+    @Test public void twelveHomeAppsKeepTheirOrderWithSixDockSlots() {
+        List<String> keys = Arrays.asList("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l");
+        assertEquals(keys, DockSlots.dockFirst(keys, 6, set("a", "b", "c", "d", "e", "f")));
+    }
+
     @Test public void noInstalledDockAppFillsTheFirstRow() {
         assertEquals(0, DockSlots.empty(0, 4, 20, false));
     }

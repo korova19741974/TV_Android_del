@@ -92,6 +92,7 @@ public class HomeKeyService extends AccessibilityService {
     private boolean steppingOut;
     /** The bound helper, so the opt-in broadcast can arm it without waiting for a new connection. */
     private static HomeKeyService running;
+    private final Runnable sleepTimerAlarm = this::onSleepTimerAlarm;
 
     @Override
     protected void onServiceConnected() {
@@ -149,6 +150,7 @@ public class HomeKeyService extends AccessibilityService {
         }
         if (gamepads != null) gamepads.stop();
         if (consumeVolumeKeys) VolumeKeys.stop();
+        handler.removeCallbacks(sleepTimerAlarm);
         super.onDestroy();
     }
 
@@ -228,6 +230,7 @@ public class HomeKeyService extends AccessibilityService {
         }
         if (!stockHome.isEmpty() || !powerOnLiveTv.isEmpty()) probeAtBoot();
         armStandbyExit();
+        scheduleSleepTimer();
         holdAppKeys = RemoteKeys.parseHoldAppKeys(config.appKeys);
         holdAppScancodes = RemoteKeys.parseHoldAppScancodes(config.appKeys);
         // gamepad_passthrough, off by default. Only with key_filter on: off, the service never filters keys.
@@ -364,6 +367,29 @@ public class HomeKeyService extends AccessibilityService {
     static void openPowerMenu() {
         HomeKeyService service = running;
         if (service != null) service.performGlobalAction(GLOBAL_ACTION_POWER_DIALOG);
+    }
+
+    static void setSleepTimer(android.content.Context context, int minutes) {
+        SleepTimer.set(context, minutes);
+        HomeKeyService service = running;
+        if (service != null) service.scheduleSleepTimer();
+    }
+
+    private void scheduleSleepTimer() {
+        handler.removeCallbacks(sleepTimerAlarm);
+        long remaining = SleepTimer.remainingMillis(SleepTimer.endAt(this), System.currentTimeMillis());
+        if (remaining > 0L) handler.postDelayed(sleepTimerAlarm, Math.min(remaining, 60_000L));
+        else if (SleepTimer.endAt(this) != 0L) SleepTimer.set(this, 0);
+    }
+
+    private void onSleepTimerAlarm() {
+        long endAt = SleepTimer.endAt(this);
+        if (SleepTimer.remainingMillis(endAt, System.currentTimeMillis()) > 0L) {
+            scheduleSleepTimer();
+            return;
+        }
+        SleepTimer.set(this, 0);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
     }
 
     static boolean powerOnRedirect(String liveTv, CharSequence pkg, long now, long armedUntil) {

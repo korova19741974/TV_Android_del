@@ -190,6 +190,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final boolean cinematic;
     /** Dock order (config.xml dock_apps, or a theme's config.json). */
     private final List<String> favourites;
+    /** Package to its configured position; avoids a linear scan for every comparator call during a reload. */
+    private final Map<String, Integer> favouriteRanks = new HashMap<>();
     /** Automatic order is local launch history only; a saved manual order still takes precedence. */
     private final boolean autoSortDock;
     /** Grid apps fill the dock slots dock_apps leaves free (config.xml, fill_dock). */
@@ -218,6 +220,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final Map<String, String> appLabels, appBanners;
     /** Every app tile is its icon on a card tinted from that icon, never its banner (config.xml, uniform_tiles). */
     private final boolean uniformTiles;
+    /** PackageManager artwork is stable between ordinary Home rebuilds; retain it to make returns instant. */
+    private final Map<String, Drawable> bannerCache = new HashMap<>();
+    private final Map<String, Drawable> iconCache = new HashMap<>();
+    private final Map<String, String> labelCache = new HashMap<>();
     private final List<Entry> items = new ArrayList<>();
 
     AppAdapter(Context ctx, TileListener listener, int dockSize, Config cfg) {
@@ -227,6 +233,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.favourites = new ArrayList<>(cfg.dockApps);
         this.autoSortDock = cfg.autoSortDock;
         if (autoSortDock) sortDockByRecentUse();
+        rebuildFavouriteRanks();
         this.fillDock = cfg.fillDock;
         this.hidden = new HashSet<>(cfg.hiddenApps);
         this.libraryPreload = new HashSet<>(cfg.libraryApps);
@@ -259,12 +266,20 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 LastOpened.get(ctx, a), LastOpened.get(ctx, b), original.get(a), original.get(b)));
     }
 
+    private void rebuildFavouriteRanks() {
+        favouriteRanks.clear();
+        for (int i = 0; i < favourites.size(); i++) favouriteRanks.put(favourites.get(i), i);
+    }
+
     /**
      * Rebuilds the tiles. A shown module card stands in for every tile of its package (same component,
      * so focus follows it); hidden_apps wins over a card, and a card's package in dock_apps takes that slot.
      */
     void reload(List<Cards.Card> cards, List<ResolveInfo> leanback) {
-        if (autoSortDock && savedDocked < 0 && savedRanks.isEmpty()) sortDockByRecentUse();
+        if (autoSortDock && savedDocked < 0 && savedRanks.isEmpty()) {
+            sortDockByRecentUse();
+            rebuildFavouriteRanks();
+        }
         PackageManager pm = ctx.getPackageManager();
         // The LEANBACK query is shared with the module-card check (MainActivity); copy it before adding
         // library apps so the caller's list stays as it was.
@@ -300,18 +315,17 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (card != null && !card.component.equals(component)) continue;   // the card stands in for this tile
             // Same cleaner as the card prompt: an app label with a bidi override or line separator must not
             // redraw the tile name as something else (#117).
-            String label = card != null ? card.label : Cards.cleanLabel(
-                    appLabels.containsKey(pkg) ? appLabels.get(pkg) : String.valueOf(ri.loadLabel(pm)), pkg);
+            String label = card != null ? card.label : labelFor(pm, ri, pkg);
             if (!seen.add(pkg + '\n' + label)) continue;
             Drawable banner = null;
             // uniform_tiles draws the icon, so an app's banner is never loaded. A module card keeps its banner.
             if (!(uniformTiles && card == null)) {
                 banner = bundledBanner(appBanners.get(pkg));
-                if (banner == null) banner = loadBanner(pm, ri);
+                if (banner == null) banner = cachedBanner(pm, ri, pkg);
             }
             // The icon is only drawn (and sampled for the glow) when there is no banner, so a tile with a
             // banner skips loading and decoding it.
-            Drawable icon = banner == null ? ri.loadIcon(pm) : null;
+            Drawable icon = banner == null ? cachedIcon(pm, ri, pkg) : null;
             if (card != null) {
                 fresh.add(new Entry(Entry.CARD, label, component, banner, icon, card.caption, card.accent));
             } else {
@@ -322,7 +336,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             // The owner's own order first; tiles it does not know (new installs) follow by the rule below.
             int saved = Order.compare(savedRanks, a.component.flattenToShortString(), b.component.flattenToShortString());
             if (saved != 0) return saved;
-            int fa = favourites.indexOf(a.pkg), fb = favourites.indexOf(b.pkg);
+            int fa = favouriteRanks.getOrDefault(a.pkg, Integer.MAX_VALUE);
+            int fb = favouriteRanks.getOrDefault(b.pkg, Integer.MAX_VALUE);
             if (fa >= 0 || fb >= 0) {
                 if (fa < 0) return 1;
                 if (fb < 0) return -1;
@@ -377,6 +392,28 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return banner != null && isBannerShaped(banner.getIntrinsicWidth(), banner.getIntrinsicHeight()) ? banner : null;
     }
 
+    private String labelFor(PackageManager pm, ResolveInfo ri, String pkg) {
+        String cached = labelCache.get(pkg);
+        if (cached != null) return cached;
+        String label = Cards.cleanLabel(appLabels.containsKey(pkg) ? appLabels.get(pkg) : String.valueOf(ri.loadLabel(pm)), pkg);
+        labelCache.put(pkg, label);
+        return label;
+    }
+
+    private Drawable cachedBanner(PackageManager pm, ResolveInfo ri, String pkg) {
+        if (bannerCache.containsKey(pkg)) return bannerCache.get(pkg);
+        Drawable banner = loadBanner(pm, ri);
+        bannerCache.put(pkg, banner);
+        return banner;
+    }
+
+    private Drawable cachedIcon(PackageManager pm, ResolveInfo ri, String pkg) {
+        if (iconCache.containsKey(pkg)) return iconCache.get(pkg);
+        Drawable icon = ri.loadIcon(pm);
+        iconCache.put(pkg, icon);
+        return icon;
+    }
+
     /**
      * Some apps declare a small square image as their banner (Rockchip's Media Center ships a 64 px one). Cropped
      * over a 16:9 tile it is a blur. A drawable with no intrinsic size (a colour, a shape) still fills the tile.
@@ -389,6 +426,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     void clear() {
         items.clear();
         notifyDataSetChanged();
+    }
+
+    /** Drops package artwork after an install/update; ordinary settings changes keep the warm cache. */
+    void clearResourceCache() {
+        bannerCache.clear();
+        iconCache.clear();
+        labelCache.clear();
     }
 
     @NonNull

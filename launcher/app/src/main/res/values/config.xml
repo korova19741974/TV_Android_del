@@ -246,9 +246,9 @@
          shelf above it. false makes the dock apps simply the first tiles of one plain grid (still in dock_apps
          order, no empty slots), with names under every tile and the glow behind every focused tile. -->
     <bool name="dock_row">true</bool>
-    <!-- Inputs, Wi-Fi and Settings folded into one round gear at the top right, like Google TV: OK drops a menu
-         with the three, hold OK keeps the launcher menu. Off by default; a theme can set "top_menu": true. -->
-    <bool name="top_menu">false</bool>
+    <!-- Quick settings folded into one round gear at the top right: launcher, Wi-Fi, Bluetooth, sleep timer,
+         display, apps and power. A theme can still set "top_menu": false to keep separate pills. -->
+    <bool name="top_menu">true</bool>
     <!-- A direct Launcher settings action instead of TV Settings in the header (or top_menu).
          Off by default; a theme can set "launcher_settings_button": true. -->
     <bool name="launcher_settings_button">false</bool>

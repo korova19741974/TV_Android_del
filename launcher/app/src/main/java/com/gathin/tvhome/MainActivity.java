@@ -350,6 +350,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())
                     && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return;
             // In the background this only marks the tiles stale; onResume rebuilds them once.
+            if (adapter != null) adapter.clearResourceCache();
             if (!tileRefresh.onPackagesChanged()) return;
             reloadApps(false);
             if (appLibrary != null) appLibrary.refresh();
@@ -586,6 +587,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override public int getSpanSize(int position) { return !singleRow && adapter != null && adapter.isLibraryAt(position) ? COLUMNS : 1; }
         });
         grid.setHasFixedSize(true);
+        // Keep one screen of tiles warm: TV focus moves much more often than packages change, and rebinding
+        // PackageManager artwork on every left/right press is visible on slower Android TV boxes.
+        grid.setItemViewCacheSize(Math.min(Config.MAX_DOCK_APPS, Math.max(2, COLUMNS * 2)));
         grid.setItemAnimator(null);
         // Tiles that scroll out while one is carried come back from the view cache without a rebind; set their
         // dimming again whenever one attaches, so none stays dim after the drop.
@@ -3231,6 +3235,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Inputs opens its own list once this one has closed.
         if (showInputsMenuRow) addInputRow(rows, popup, R.drawable.ic_input, getString(R.string.inputs), -1, () -> root.post(this::showInputs));
         addInputRow(rows, popup, R.drawable.ic_wifi, getString(R.string.quick_network), -1, this::openNetworkPill);
+        addInputRow(rows, popup, R.drawable.ic_bluetooth, getString(R.string.quick_bluetooth), -1,
+                () -> open(systemIntent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        addInputRow(rows, popup, R.drawable.ic_timer, getString(R.string.sleep_timer), -1,
+                () -> SleepTimerDialog.show(this));
         CharSequence network = wifiIconOnly ? btnWifi.getContentDescription() : btnWifi.getText();
         if (!TextUtils.isEmpty(network)) {
             TextView status = rows.getChildAt(rows.getChildCount() - 1).findViewById(R.id.status);
@@ -3238,17 +3246,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             status.setVisibility(View.VISIBLE);
         }
         addInputRow(rows, popup, R.drawable.ic_swap_vert, getString(R.string.reorder), -1, this::toggleReorder);
-        if (launcherSettingsButton) {
-            addInputRow(rows, popup, R.drawable.ic_home_settings_pill, getString(R.string.launcher_settings), -1,
-                    () -> startActivityForResult(new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
-        } else {
-            addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.settings), -1,
-                    () -> open(systemIntent(Settings.ACTION_SETTINGS)));
-        }
+        addInputRow(rows, popup, R.drawable.ic_home_settings_pill, getString(R.string.launcher_settings), -1,
+                () -> startActivityForResult(new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
+        addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.tv_settings), -1,
+                () -> open(systemIntent(Settings.ACTION_SETTINGS)));
+        addInputRow(rows, popup, R.drawable.ic_power, getString(R.string.power_menu), -1, this::openPowerMenu);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max((int) (220 * density), Math.min(panel.getMeasuredWidth(), (int) (360 * density))));
         dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
         rows.getChildAt(0).requestFocus();
+    }
+
+    private void openPowerMenu() {
+        if (HomeKeyService.canOpenPowerMenu()) {
+            HomeKeyService.openPowerMenu();
+        } else {
+            Toast.makeText(this, R.string.power_unavailable, Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** The header opens launcher settings directly; hold OK keeps the extra home actions available. */

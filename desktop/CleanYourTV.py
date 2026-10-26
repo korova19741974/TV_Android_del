@@ -163,7 +163,7 @@ class CleanYourTVApp:
 
         apps_frame = ttk.LabelFrame(outer, text="2. Приложения на главном экране", padding=16)
         apps_frame.pack(fill="both", expand=True, pady=(0, 14))
-        ttk.Label(apps_frame, text="Выберите не более шести приложений. После установки APK нажмите «Обновить список».",
+        ttk.Label(apps_frame, text="Выберите не более 12 приложений. После установки APK нажмите «Обновить список».",
                   style="Body.TLabel").pack(anchor="w", pady=(0, 8))
         list_row = ttk.Frame(apps_frame)
         list_row.pack(fill="both", expand=True)
@@ -381,8 +381,8 @@ class CleanYourTVApp:
         chosen = [self.apps[index] for index in self.app_list.curselection()]
         if not chosen:
             raise ValueError("Выберите хотя бы одно приложение.")
-        if len(chosen) > 6:
-            raise ValueError("Можно выбрать не более шести приложений.")
+        if len(chosen) > 12:
+            raise ValueError("Можно выбрать не более 12 приложений.")
         return chosen
 
     def apply_theme(self) -> None:

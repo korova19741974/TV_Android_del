@@ -34,14 +34,17 @@ public final class QuickSettingsActivity extends Activity {
         }
         findViewById(R.id.scrim).setOnClickListener(v -> finish());
         LinearLayout rows = findViewById(R.id.rows);
+        addRow(rows, R.drawable.ic_home_settings_pill, R.string.launcher_settings, 0,
+                new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_LAUNCHER_SETTINGS));
+        addRow(rows, R.drawable.ic_wifi, R.string.quick_network, 0, SystemSettings.intent(this, Settings.ACTION_WIFI_SETTINGS));
+        addRow(rows, R.drawable.ic_bluetooth, R.string.quick_bluetooth, 0,
+                SystemSettings.intent(this, Settings.ACTION_BLUETOOTH_SETTINGS));
+        addSleepTimerRow(rows);
+        addPowerRow(rows);
         addRow(rows, R.drawable.ic_settings, R.string.tv_settings, 0, SystemSettings.intent(this, Settings.ACTION_SETTINGS));
         addRow(rows, R.drawable.ic_picture, R.string.quick_picture, 0, SystemSettings.intent(this, Settings.ACTION_DISPLAY_SETTINGS));
-        addRow(rows, R.drawable.ic_wifi, R.string.quick_network, 0, SystemSettings.intent(this, Settings.ACTION_WIFI_SETTINGS));
         addRow(rows, R.drawable.ic_apps, R.string.quick_apps, R.string.quick_apps_hint,
                 SystemSettings.intent(this, Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS));
-        // Through Home, so it rebuilds with the new choices when Launcher settings closes.
-        addRow(rows, R.drawable.ic_home_settings, R.string.launcher_settings, 0,
-                new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_LAUNCHER_SETTINGS));
         rows.getChildAt(0).requestFocus();
     }
 
@@ -74,6 +77,30 @@ public final class QuickSettingsActivity extends Activity {
             } catch (ActivityNotFoundException | SecurityException e) {
                 Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
             }
+            finish();
+        });
+        rows.addView(row);
+    }
+
+    private void addSleepTimerRow(LinearLayout rows) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(R.drawable.ic_timer);
+        ((TextView) row.findViewById(R.id.title)).setText(R.string.sleep_timer);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        row.setOnClickListener(v -> SleepTimerDialog.show(this));
+        rows.addView(row);
+    }
+
+    private void addPowerRow(LinearLayout rows) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(R.drawable.ic_power);
+        ((TextView) row.findViewById(R.id.title)).setText(R.string.power_menu);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        row.setOnClickListener(v -> {
+            if (HomeKeyService.canOpenPowerMenu()) HomeKeyService.openPowerMenu();
+            else Toast.makeText(this, R.string.power_unavailable, Toast.LENGTH_SHORT).show();
             finish();
         });
         rows.addView(row);
