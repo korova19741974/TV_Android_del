@@ -72,6 +72,11 @@ Any of these work: Claude Code (on [0G Private Computer](https://pc.0g.ai) or an
 Cloning matters: the assistant reuses this repo's `tools/disable.sh` and `launcher/build-and-install.sh`
 instead of writing its own, and that is where the backup, the Home guard and the restore record live.
 
+For a single, cautious entry point that combines inventory, review-only planning, reversible apply/restore and
+launcher dock/key configuration, see [`docs/UNIFIED-SETUP.md`](docs/UNIFIED-SETUP.md) and
+[`tools/unified.py`](tools/unified.py). It refuses to treat the nearby Xiaomi MZTU0 list as an automatic MZTU1
+profile.
+
 The assistant backs up, debloats, builds and installs the launcher, and checks each step with
 screenshots pulled from the TV. With this repo as context it takes about fifteen minutes.
 
