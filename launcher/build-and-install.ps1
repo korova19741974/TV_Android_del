@@ -24,7 +24,7 @@ Set-Location $PSScriptRoot
 
 $py = if (Test-Path '..\tools\python\python.exe') { '..\tools\python\python.exe' } else { '..\tools\venv\Scripts\python.exe' }
 if (-not (Test-Path -LiteralPath $py)) { throw 'Python TV tools were not found. Start CleanYourTV.exe or create tools\venv first.' }
-$recoveryPython = if (Test-Path '..\tools\python\python.exe') { 'tools\python\python.exe' } else { 'tools\venv\Scripts\python.exe' }
+$recoveryPython = $py -replace '^\.\.[\\/]', ''
 
 # Reject an incompatible TV before downloading build tools or compiling and uploading the APK.
 $minSdkMatch = Select-String -Path 'app\build.gradle' -Pattern '^\s*minSdk\s+(\d{1,3})\s*$' | Select-Object -First 1
