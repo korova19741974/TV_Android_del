@@ -257,7 +257,7 @@ def write_plan(scan_dir: Path, out: Path, reference: Path, keep: list[str], appr
 
 def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: int,
                  background: str = "", show_time: bool | None = None,
-                 show_date: bool | None = None, weather_city: str = "",
+                 show_date: bool | None = None, weather_city: str | None = None,
                  auto_sort_dock: bool | None = None) -> int:
     for name in dock:
         if not PACKAGE_RE.fullmatch(name):
@@ -277,10 +277,10 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
         config["show_time"] = show_time
     if show_date is not None:
         config["show_date"] = show_date
-    weather_city = weather_city.strip()
-    if len(weather_city) > 80 or any(ord(char) < 32 for char in weather_city):
-        raise SystemExit("--weather-city must be a short city name")
-    if weather_city:
+    if weather_city is not None:
+        weather_city = weather_city.strip()
+        if len(weather_city) > 80 or any(ord(char) < 32 for char in weather_city):
+            raise SystemExit("--weather-city must be a short city name")
         config["weather_city"] = weather_city
     if auto_sort_dock is not None:
         config["auto_sort_dock"] = auto_sort_dock

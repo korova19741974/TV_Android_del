@@ -81,6 +81,11 @@ class UnifiedPlanTest(unittest.TestCase):
         self.assertEqual(config["weather_city"], "Moscow")
         self.assertTrue(config["auto_sort_dock"])
 
+    def test_empty_weather_city_is_written_as_hidden_widget(self):
+        out = self.base / "no-weather-theme"
+        unified.write_config(out, ["com.example.keep"], [], 6, weather_city="")
+        self.assertEqual(json.loads((out / "config.json").read_text())["weather_city"], "")
+
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):
             unified.install_apk(self.base / "notes.txt")

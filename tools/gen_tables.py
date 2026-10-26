@@ -118,8 +118,13 @@ def between(text: str, name: str, body: list[str]) -> str:
 def render(root: Path) -> str:
     readme = (root / "README.md").read_text(encoding="utf-8")
     entries = load(root)
-    readme = between(readme, "tv-brands", brand_lines(entries))
-    return between(readme, "tv-table", readme_rows(entries))
+    # The simple Russian README intentionally has no model catalogue. Keep the generator useful for
+    # repositories that include the optional tables, but do not force technical profile text into this README.
+    if "<!-- tv-brands:start" in readme:
+        readme = between(readme, "tv-brands", brand_lines(entries))
+    if "<!-- tv-table:start" in readme:
+        readme = between(readme, "tv-table", readme_rows(entries))
+    return readme
 
 
 def main(argv: list[str] | None = None) -> int:
