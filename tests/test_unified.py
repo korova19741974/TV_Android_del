@@ -67,10 +67,12 @@ class UnifiedPlanTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             unified.selected_apps(apps, "3")
 
-    def test_config_accepts_a_simple_background_and_sleep_key(self):
+    def test_config_accepts_a_hold_sleep_key(self):
         out = self.base / "theme"
-        unified.write_config(out, ["com.example.keep"], ["183:sleep"], 6, "#101820")
-        self.assertEqual(json.loads((out / "config.json").read_text())["background_color"], "#101820")
+        unified.write_config(out, ["com.example.keep"], ["hold:183:sleep"], 6, "#101820")
+        config = json.loads((out / "config.json").read_text())
+        self.assertEqual(config["background_color"], "#101820")
+        self.assertEqual(config["app_keys"], ["hold:183:sleep"])
 
     def test_config_accepts_simple_widgets(self):
         out = self.base / "widget-theme"
@@ -85,6 +87,15 @@ class UnifiedPlanTest(unittest.TestCase):
         out = self.base / "no-weather-theme"
         unified.write_config(out, ["com.example.keep"], [], 6, weather_city="")
         self.assertEqual(json.loads((out / "config.json").read_text())["weather_city"], "")
+
+    def test_learned_remote_key_result_is_read_without_manual_code(self):
+        self.assertEqual(unified.parse_learned_key(
+            "keycode=207 scancode=0 name=KEYCODE_NETFLIX\n"
+        ), {"keycode": 207, "scancode": 0, "name": "KEYCODE_NETFLIX"})
+
+    def test_learned_remote_key_result_rejects_incomplete_output(self):
+        with self.assertRaises(ValueError):
+            unified.parse_learned_key("button not found")
 
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):

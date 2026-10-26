@@ -6,6 +6,8 @@ Set TV_HOST to the TV's IP (or IP:port). Usage:
     tv.py <shell command...>           run one shell command
     tv.py --screenshot <local.png> [KEY ...] [--wait SECONDS]
                                        capture the screen on the TV, then pull it; press remote keys first
+    tv.py --learn-key [--wait SECONDS]
+                                       wait for the next remote button and print its Android keycode
     tv.py --batch < commands.txt       one command per line, same connection
     tv.py --push <local> <remote>      small files only (see b64push.py for larger ones)
     tv.py --pull <remote> <local>
@@ -214,6 +216,7 @@ USAGE = """usage:
     tv.py --screenshot <local.png> [KEY ...] [--wait SECONDS]
     tv.py --push <local> <remote>
     tv.py --pull <remote> <local>
+    tv.py --learn-key [--wait SECONDS]
     tv.py --batch < commands.txt
     tv.py --reboot
     tv.py --help
@@ -246,8 +249,25 @@ def check_arity(args):
         sys.exit(2)
     if args and args[0] == "--screenshot":
         screenshot_args(args[1:])
+    elif args and args[0] == "--learn-key":
+        learn_key_args(args[1:])
     elif args and args[0].startswith("-") and args[0] not in ARITY:
         usage_error(f"not a flag of tv.py: {args[0]!r}")
+
+
+def learn_key_args(rest):
+    """Parse the short wait used by the remote-button learning mode."""
+    if not rest:
+        return 25.0
+    if len(rest) != 2 or rest[0] != "--wait":
+        usage_error("--learn-key accepts only --wait SECONDS")
+    try:
+        wait = float(rest[1])
+    except ValueError:
+        wait = -1
+    if not 5 <= wait <= 120:
+        usage_error("--wait must be between 5 and 120 seconds")
+    return wait
 
 
 def screenshot_args(rest):
@@ -336,6 +356,43 @@ def screenshot(dev, local, keys=(), wait=0.0):
     return 0
 
 
+def learn_key(dev, wait=25.0):
+    """Wait for the Android accessibility services to report the next remote key.
+
+    The receiver creates a one-shot request in the launcher's app-specific external folder. The service
+    records the Android keycode (not only the Linux scan code), so branded buttons such as Netflix can be
+    configured reliably on each TV firmware.
+    """
+    armed = dev.shell(
+        "am broadcast -a com.gathin.tvhome.LEARN_KEY "
+        "-n com.gathin.tvhome/.KeyLearningReceiver",
+        read_timeout_s=30.0,
+    )
+    match = re.search(r'data="([^"]+)"', armed) or re.search(r"data=([^,\s]+)", armed)
+    if not match:
+        raise RuntimeError(
+            "Не удалось включить настройку кнопки. Установите лаунчер и обработчики кнопок, "
+            "затем попробуйте ещё раз. Ответ ТВ: " + " ".join(armed.split())
+        )
+    result_path = match.group(1)
+    if not re.fullmatch(r"/[A-Za-z0-9_./-]+", result_path):
+        raise RuntimeError("Телевизор вернул неожиданный путь файла настройки кнопки")
+
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        result = dev.shell(f"cat {result_path} 2>/dev/null", read_timeout_s=10.0)
+        found = re.search(r"keycode=(\d+)\s+scancode=(-?\d+)\s+name=(\S+)", result)
+        if found:
+            print(f"keycode={found.group(1)} scancode={found.group(2)} name={found.group(3)}")
+            dev.shell(f"rm -f {result_path}", read_timeout_s=10.0)
+            return 0
+        time.sleep(0.4)
+
+    request_path = result_path.replace("learn-key.result", "learn-key.request")
+    dev.shell(f"rm -f {request_path}", read_timeout_s=10.0)
+    raise RuntimeError("Кнопка не обнаружена. Нажмите и удерживайте нужную кнопку на пульте и повторите настройку.")
+
+
 def main():
     args = sys.argv[1:]
     check_arity(args)
@@ -364,6 +421,8 @@ def main():
     elif args[0] == "--screenshot":
         local, keys, wait = screenshot_args(args[1:])
         status = screenshot(dev, local, keys, wait)
+    elif args[0] == "--learn-key":
+        status = learn_key(dev, learn_key_args(args[1:]))
     elif args[0] == "--push" and len(args) == 3:
         dev.push(args[1], args[2], transport_timeout_s=300.0, read_timeout_s=300.0)
         print(f"pushed {args[1]} -> {args[2]}")

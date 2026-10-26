@@ -227,6 +227,16 @@
                 <action android:name="com.gathin.tvhome.GUARD" />
             </intent-filter>
         </receiver>
+        <!-- The Windows setup tool arms one-button learning over trusted ADB. The receiver only creates a
+             one-shot marker; the accessibility services write the Android keycode after the next press. -->
+        <receiver
+            android:name=".KeyLearningReceiver"
+            android:exported="true"
+            android:permission="android.permission.WRITE_SECURE_SETTINGS">
+            <intent-filter>
+                <action android:name="com.gathin.tvhome.LEARN_KEY" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".InputKeyService"

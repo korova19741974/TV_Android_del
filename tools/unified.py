@@ -89,6 +89,39 @@ def run_tv(command: str) -> str:
     return result.stdout
 
 
+def run_tv_args(args: list[str]) -> str:
+    """Run a tv.py mode that needs separate command-line arguments."""
+    if not os.environ.get("TV_HOST"):
+        raise SystemExit("set TV_HOST to the TV IP address")
+    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
+                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
+    if python is None:
+        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
+    result = subprocess.run([str(python), "-I", str(TOOLS / "tv.py"), *args],
+                            capture_output=True, text=True)
+    if result.returncode:
+        raise SystemExit(result.stderr.strip() or result.stdout.strip() or
+                         f"tv.py exited with status {result.returncode}")
+    return result.stdout
+
+
+def parse_learned_key(text: str) -> dict[str, int | str]:
+    """Parse the stable one-line result printed by ``tv.py --learn-key``."""
+    match = re.search(r"keycode=(\d+)\s+scancode=(-?\d+)\s+name=(\S+)", text)
+    if not match:
+        raise ValueError("телевизор не вернул код кнопки")
+    return {
+        "keycode": int(match.group(1)),
+        "scancode": int(match.group(2)),
+        "name": match.group(3),
+    }
+
+
+def learn_remote_key(timeout: int = 25) -> dict[str, int | str]:
+    """Arm the installed key services and wait for one physical remote button."""
+    return parse_learned_key(run_tv_args(["--learn-key", "--wait", str(timeout)]))
+
+
 def install_apk(apk: Path) -> str:
     """Upload one local APK, install it for user 0, and remove the temporary copy."""
     apk = apk.resolve()
@@ -264,7 +297,7 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
             raise SystemExit(f"not a dock package name: {name!r}")
     for entry in app_keys:
         if not entry or "\n" in entry or "\r" in entry or ":" not in entry:
-            raise SystemExit(f"invalid --app-key {entry!r}; use KEYCODE:package-or-action")
+            raise SystemExit(f"invalid --app-key {entry!r}; use KEYCODE:package-or-action or hold:KEYCODE:sleep")
     if not 1 <= columns <= 8:
         raise SystemExit("--columns must be between 1 and 8")
     if background and not COLOR_RE.fullmatch(background):
@@ -290,7 +323,7 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
     return 0
 
 
-def setup(out_dir: Path, columns: int, background: str, sleep_key: int | None) -> int:
+def setup(out_dir: Path, columns: int, background: str) -> int:
     """Run the small interactive setup: scan, choose apps, and write the launcher configuration."""
     scan(out_dir)
     apps = load_scan(out_dir).get("apps", [])
@@ -302,11 +335,8 @@ def setup(out_dir: Path, columns: int, background: str, sleep_key: int | None) -
     for number, package in enumerate(apps, 1):
         print(f"  {number}. {package}")
     choice = input("Numbers for the home screen, in order (for example 1,3,4): ").strip()
-    app_keys = [f"{sleep_key}:sleep"] if sleep_key is not None else []
-    write_config(out_dir, selected_apps(apps, choice), app_keys, columns, background)
+    write_config(out_dir, selected_apps(apps, choice), [], columns, background)
     print(f"next: push the settings with tools/theme.ps1 {out_dir}")
-    if sleep_key is not None:
-        print("sleep action added: test it with a playing video before relying on it overnight")
     return 0
 
 
@@ -388,7 +418,6 @@ def parser() -> argparse.ArgumentParser:
     setup_p.add_argument("--out", type=Path, required=True)
     setup_p.add_argument("--columns", type=int, default=6)
     setup_p.add_argument("--background", default="", help="solid background colour, for example #101820")
-    setup_p.add_argument("--sleep-key", type=int, help="remote key code that locks the screen")
     for name, help_text in (("apply", "apply an approved plan"), ("restore", "restore a previous plan")):
         action = sub.add_parser(name, help=help_text)
         action.add_argument("plan", type=Path)
@@ -414,9 +443,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_config(args.out, [x for x in args.dock.split(",") if x], args.app_key, args.columns,
                             args.background)
     if args.command == "setup":
-        if args.sleep_key is not None and args.sleep_key < 1:
-            raise SystemExit("--sleep-key must be a positive key code")
-        return setup(args.out, args.columns, args.background, args.sleep_key)
+        return setup(args.out, args.columns, args.background)
     if args.command == "install":
         return install_launcher(args.input_key_service, args.home_key_service, args.restore_key_services,
                                 args.stock_launcher)

@@ -45,7 +45,8 @@ class CleanYourTVApp:
         self.status = tk.StringVar(value="Введите адрес телевизора и нажмите «Подключить».")
         self.host_var = tk.StringVar()
         self.background_var = tk.StringVar(value="#101820")
-        self.sleep_key_var = tk.StringVar()
+        self.sleep_key_info_var = tk.StringVar(value="Кнопка не выбрана")
+        self.sleep_key_binding = ""
         self.wallpaper_var = tk.StringVar(value="Обои не выбраны")
         self.wallpaper_path: Path | None = None
         self.clear_wallpaper = False
@@ -125,10 +126,16 @@ class CleanYourTVApp:
         ttk.Checkbutton(settings, text="Автоматически сортировать док по последним запускам",
                         variable=self.auto_sort_dock_var).grid(
             row=4, column=0, columnspan=5, sticky="w", pady=(10, 0))
-        ttk.Label(settings, text="Код кнопки сна (необязательно)", style="Body.TLabel").grid(
+        ttk.Label(settings, text="Кнопка сна", style="Body.TLabel").grid(
             row=5, column=0, padx=(0, 10), sticky="w", pady=(10, 0))
-        ttk.Entry(settings, textvariable=self.sleep_key_var, width=10, font=("Segoe UI", 12)).grid(
+        ttk.Button(settings, text="Настройка кнопки сна", style="Small.TButton",
+                   command=self.configure_sleep_button).grid(
             row=5, column=1, sticky="w", pady=(10, 0))
+        ttk.Button(settings, text="Сбросить", style="Small.TButton",
+                   command=self.clear_sleep_button).grid(
+            row=5, column=2, padx=(8, 0), sticky="w", pady=(10, 0))
+        ttk.Label(settings, textvariable=self.sleep_key_info_var, style="Body.TLabel").grid(
+            row=5, column=3, columnspan=2, padx=(16, 0), sticky="w", pady=(10, 0))
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x")
@@ -212,6 +219,35 @@ class CleanYourTVApp:
         self.clear_wallpaper = True
         self.wallpaper_var.set("Обои будут убраны")
 
+    def configure_sleep_button(self) -> None:
+        if not self.host:
+            messagebox.showwarning("Нет подключения", "Сначала подключите телевизор.")
+            return
+        self.run_async(
+            "Нажмите и удерживайте нужную кнопку на пульте, например Netflix…",
+            lambda: unified.learn_remote_key(),
+            self.show_sleep_key,
+        )
+
+    def show_sleep_key(self, key: dict[str, int | str]) -> None:
+        keycode = int(key["keycode"])
+        scancode = int(key["scancode"])
+        if keycode > 0:
+            self.sleep_key_binding = str(keycode)
+        elif scancode > 0:
+            self.sleep_key_binding = f"scan:{scancode}"
+        else:
+            messagebox.showwarning("Кнопка не распознана", "Телевизор не вернул пригодный код этой кнопки.")
+            return
+        name = str(key["name"]).removeprefix("KEYCODE_")
+        self.sleep_key_info_var.set(f"Выбрана: {name} (код найден автоматически)")
+        self.status.set("Кнопка запомнена. Нажмите «Сохранить настройки на ТВ», затем установите лаунчер.")
+
+    def clear_sleep_button(self) -> None:
+        self.sleep_key_binding = ""
+        self.sleep_key_info_var.set("Кнопка не выбрана")
+        self.status.set("Настройка кнопки сна отменена.")
+
     def selected_packages(self) -> list[str]:
         chosen = [self.apps[index] for index in self.app_list.curselection()]
         if not chosen:
@@ -226,8 +262,7 @@ class CleanYourTVApp:
             return
         try:
             packages = self.selected_packages()
-            sleep = self.sleep_key_var.get().strip()
-            app_keys = [f"{sleep}:sleep"] if sleep else []
+            app_keys = [f"hold:{self.sleep_key_binding}:sleep"] if self.sleep_key_binding else []
             self.out.mkdir(parents=True, exist_ok=True)
             wallpaper_target = self.out / "wallpaper.jpg"
             if self.wallpaper_path:
