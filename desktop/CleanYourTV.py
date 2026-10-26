@@ -15,7 +15,11 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 def application_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
+    here = Path(__file__).resolve()
+    for parent in (here.parent, *here.parents):
+        if (parent / "launcher").is_dir() and (parent / "tools").is_dir():
+            return parent
+    return here.parent.parent
 
 
 ROOT = application_root()
@@ -60,6 +64,7 @@ class CleanYourTVApp:
         self.show_date_var = tk.BooleanVar(value=True)
         self.weather_city_var = tk.StringVar(value="Санкт-Петербург, Россия")
         self.auto_sort_dock_var = tk.BooleanVar(value=True)
+        self.busy = False
         self._build()
 
     def _build(self) -> None:
@@ -154,9 +159,28 @@ class CleanYourTVApp:
 
     def set_busy(self, text: str) -> None:
         self.status.set(text)
+        self.busy = True
+        self.set_controls_enabled(False)
         self.root.update_idletasks()
 
+    def set_controls_enabled(self, enabled: bool) -> None:
+        state = "normal" if enabled else "disabled"
+
+        def visit(widget: tk.Misc) -> None:
+            for child in widget.winfo_children():
+                if isinstance(child, (tk.Entry, tk.Listbox, ttk.Button, ttk.Checkbutton, ttk.Entry)):
+                    child.configure(state=state)
+                visit(child)
+
+        visit(self.root)
+
+    def finish_async(self) -> None:
+        self.busy = False
+        self.set_controls_enabled(True)
+
     def run_async(self, label: str, work, done) -> None:
+        if self.busy:
+            return
         self.set_busy(label)
 
         def worker() -> None:
@@ -164,9 +188,11 @@ class CleanYourTVApp:
                 result = work()
             except (Exception, SystemExit) as exc:  # the dialog is the user-facing error boundary
                 error_text = str(exc)
-                self.root.after(0, lambda: messagebox.showerror("Не удалось выполнить действие", error_text))
+                self.root.after(0, lambda: (self.finish_async(), self.status.set(
+                    "Действие не выполнено. Можно попробовать ещё раз."),
+                    messagebox.showerror("Не удалось выполнить действие", error_text)))
             else:
-                self.root.after(0, lambda: done(result))
+                self.root.after(0, lambda: (self.finish_async(), done(result)))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -300,6 +326,7 @@ class CleanYourTVApp:
         result = subprocess.run([powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                                  str(script), str(self.out), "-TvHost", self.host],
                                 cwd=ROOT, capture_output=True, text=True,
+                                errors="replace",
                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if result.returncode:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "не удалось отправить настройки")
@@ -321,6 +348,7 @@ class CleanYourTVApp:
                 [powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
                  "-TvHost", self.host, "-InputKeyService", "-HomeKeyService"],
                 cwd=ROOT, capture_output=True, text=True,
+                errors="replace",
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             if result.returncode:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "сборка лаунчера не удалась")

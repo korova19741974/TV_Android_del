@@ -83,19 +83,36 @@ Run-Checked $VenvPython $pyinstallerArgs 'PyInstaller could not build CleanYourT
 $bundleTools = Join-Path $Bundle 'tools'
 New-Item -ItemType Directory -Force -Path $bundleTools | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $Root 'tools') -Force |
-    Where-Object { $_.Name -ne 'venv' } |
+    Where-Object { $_.Name -notin @('venv', '__pycache__', 'adbkey') } |
     Copy-Item -Destination $bundleTools -Recurse -Force
 
-# A venv points to the build computer's Python installation. Copy a self-contained Python runtime
-# and the already installed project packages instead, then use it from the bundled PowerShell files.
+# A venv points to the build computer's Python installation. Copy only the runtime files and the
+# packages used by the TV tools instead of the complete developer installation and PyInstaller.
 $runtimePython = Join-Path $bundleTools 'python'
-Copy-Item -LiteralPath (Split-Path -Parent $basePythonPath) -Destination $runtimePython -Recurse -Force
+$basePythonRoot = Split-Path -Parent $basePythonPath
+New-Item -ItemType Directory -Force -Path $runtimePython | Out-Null
+foreach ($name in @('python.exe', 'pythonw.exe', 'python3.dll', 'python312.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+    $source = Join-Path $basePythonRoot $name
+    if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $runtimePython -Force }
+}
+Copy-Item -LiteralPath (Join-Path $basePythonRoot 'DLLs') -Destination $runtimePython -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $basePythonRoot 'Lib') -Destination $runtimePython -Recurse -Force
+foreach ($relative in @('Lib\idlelib', 'Lib\test', 'Lib\tests', 'Lib\ensurepip', 'Lib\tkinter',
+        'Lib\turtledemo', 'Lib\venv')) {
+    $unneeded = Join-Path $runtimePython $relative
+    if (Test-Path -LiteralPath $unneeded) { Remove-Item -LiteralPath $unneeded -Recurse -Force }
+}
 $runtimeSitePackages = Join-Path $runtimePython 'Lib\site-packages'
 New-Item -ItemType Directory -Force -Path $runtimeSitePackages | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $Venv 'Lib\site-packages') -Force |
+    Where-Object { $_.Name -match '^(adb_shell|adb_shell-|rsa|rsa-|cryptography|cryptography-|cffi|cffi-|pyasn1|pyasn1-|pycparser|pycparser-)' } |
     Copy-Item -Destination $runtimeSitePackages -Recurse -Force
 
 Copy-Item -LiteralPath (Join-Path $Root 'launcher') -Destination $Bundle -Recurse -Force
+foreach ($relative in @('launcher\.gradle', 'launcher\build', 'launcher\app\build')) {
+    $unneeded = Join-Path $Bundle $relative
+    if (Test-Path -LiteralPath $unneeded) { Remove-Item -LiteralPath $unneeded -Recurse -Force }
+}
 Copy-Item -LiteralPath (Join-Path $Root 'examples') -Destination $Bundle -Recurse -Force
 New-Item -ItemType Directory -Force -Path (Join-Path $Bundle 'desktop') | Out-Null
 Copy-Item -LiteralPath (Join-Path $Desktop 'prepare-windows.ps1') -Destination (Join-Path $Bundle 'desktop') -Force

@@ -29,7 +29,11 @@ from typing import Iterable
 def application_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent
+    here = Path(__file__).resolve()
+    for parent in (here.parent, *here.parents):
+        if (parent / "launcher").is_dir() and (parent / "tools").is_dir():
+            return parent
+    return here.parent.parent
 
 
 ROOT = application_root()
