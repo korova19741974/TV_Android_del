@@ -91,10 +91,12 @@ Get-ChildItem -LiteralPath (Join-Path $Root 'tools') -Force |
 $runtimePython = Join-Path $bundleTools 'python'
 $basePythonRoot = Split-Path -Parent $basePythonPath
 New-Item -ItemType Directory -Force -Path $runtimePython | Out-Null
-foreach ($name in @('python.exe', 'pythonw.exe', 'python3.dll', 'python312.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+foreach ($name in @('python.exe', 'pythonw.exe', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
     $source = Join-Path $basePythonRoot $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $runtimePython -Force }
 }
+Get-ChildItem -LiteralPath $basePythonRoot -Filter 'python3*.dll' -File -ErrorAction SilentlyContinue |
+    ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $runtimePython -Force }
 Copy-Item -LiteralPath (Join-Path $basePythonRoot 'DLLs') -Destination $runtimePython -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $basePythonRoot 'Lib') -Destination $runtimePython -Recurse -Force
 foreach ($relative in @('Lib\idlelib', 'Lib\test', 'Lib\tests', 'Lib\ensurepip', 'Lib\tkinter',
@@ -103,6 +105,9 @@ foreach ($relative in @('Lib\idlelib', 'Lib\test', 'Lib\tests', 'Lib\ensurepip',
     if (Test-Path -LiteralPath $unneeded) { Remove-Item -LiteralPath $unneeded -Recurse -Force }
 }
 $runtimeSitePackages = Join-Path $runtimePython 'Lib\site-packages'
+if (Test-Path -LiteralPath $runtimeSitePackages) {
+    Remove-Item -LiteralPath $runtimeSitePackages -Recurse -Force
+}
 New-Item -ItemType Directory -Force -Path $runtimeSitePackages | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $Venv 'Lib\site-packages') -Force |
     Where-Object { $_.Name -match '^(adb_shell|adb_shell-|rsa|rsa-|cryptography|cryptography-|cffi|cffi-|pyasn1|pyasn1-|pycparser|pycparser-)' } |

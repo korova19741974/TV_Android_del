@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -52,6 +53,7 @@ class CleanYourTVApp:
         self.apps: list[str] = []
         self.host = ""
         self.out = ROOT / "work" / "desktop-tv"
+        self.state_file = self.out / "desktop-state.json"
         self.status = tk.StringVar(value="Введите адрес телевизора и нажмите «Подключить».")
         self.host_var = tk.StringVar()
         self.background_var = tk.StringVar(value="#101820")
@@ -65,7 +67,75 @@ class CleanYourTVApp:
         self.weather_city_var = tk.StringVar(value="Санкт-Петербург, Россия")
         self.auto_sort_dock_var = tk.BooleanVar(value=True)
         self.busy = False
+        self._load_state()
         self._build()
+
+    @staticmethod
+    def _read_json(path: Path) -> dict:
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def _load_state(self) -> None:
+        """Restore the last desktop choices without making a broken state file fatal."""
+        config = self._read_json(self.out / "config.json")
+        state = self._read_json(self.state_file)
+
+        self.host = str(state.get("host", "")).strip()
+        self.host_var.set(self.host)
+        if self.host:
+            os.environ["TV_HOST"] = self.host
+
+        self.background_var.set(str(state.get("background", config.get("background_color", "#101820"))))
+        self.show_time_var.set(bool(state.get("show_time", config.get("show_time", True))))
+        self.show_date_var.set(bool(state.get("show_date", config.get("show_date", True))))
+        self.weather_city_var.set(str(state.get(
+            "weather_city", config.get("weather_city", "Санкт-Петербург, Россия"))))
+        self.auto_sort_dock_var.set(bool(state.get(
+            "auto_sort_dock", config.get("auto_sort_dock", True))))
+
+        binding = state.get("sleep_key_binding", "")
+        if not isinstance(binding, str) or not binding:
+            for entry in config.get("app_keys", []):
+                if isinstance(entry, str) and entry.startswith("hold:") and entry.endswith(":sleep"):
+                    binding = entry[5:-6]
+                    break
+        self.sleep_key_binding = binding if isinstance(binding, str) else ""
+        if self.sleep_key_binding:
+            self.sleep_key_info_var.set("Кнопка сна сохранена")
+
+        self.clear_wallpaper = bool(state.get("clear_wallpaper", False))
+        if not self.clear_wallpaper:
+            wallpaper = state.get("wallpaper_path")
+            if not isinstance(wallpaper, str) or not Path(wallpaper).is_file():
+                target = self.out / "wallpaper.jpg"
+                wallpaper = str(target) if target.is_file() else ""
+            if wallpaper:
+                self.wallpaper_path = Path(wallpaper)
+                self.wallpaper_var.set(f"Обои: {self.wallpaper_path.name}")
+        elif (self.out / "wallpaper.jpg").exists():
+            self.wallpaper_var.set("Обои будут убраны")
+
+    def _save_state(self) -> None:
+        state = {
+            "host": self.host,
+            "background": self.background_var.get().strip(),
+            "show_time": self.show_time_var.get(),
+            "show_date": self.show_date_var.get(),
+            "weather_city": self.weather_city_var.get(),
+            "auto_sort_dock": self.auto_sort_dock_var.get(),
+            "sleep_key_binding": self.sleep_key_binding,
+            "wallpaper_path": str(self.wallpaper_path) if self.wallpaper_path else "",
+            "clear_wallpaper": self.clear_wallpaper,
+        }
+        try:
+            self.out.mkdir(parents=True, exist_ok=True)
+            self.state_file.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except OSError:
+            # Settings are a convenience; a read-only work folder must not block TV configuration.
+            pass
 
     def _build(self) -> None:
         style = ttk.Style()
@@ -203,6 +273,7 @@ class CleanYourTVApp:
             return
         self.host = host
         os.environ["TV_HOST"] = host
+        self._save_state()
         self.run_async("Читаю данные телевизора… Подтвердите доступ на экране ТВ, если появится запрос.",
                        lambda: (unified.scan(self.out), unified.load_scan(self.out))[1], self.show_scan)
 
@@ -217,24 +288,46 @@ class CleanYourTVApp:
         self.app_list.delete(0, tk.END)
         for app in self.apps:
             self.app_list.insert(tk.END, app_label(app))
+        saved = self._read_json(self.out / "config.json").get("dock_apps", [])
+        if isinstance(saved, list):
+            for index, package in enumerate(self.apps):
+                if package in saved:
+                    self.app_list.selection_set(index)
         self.status.set(f"Телевизор подключён. Найдено приложений: {len(self.apps)}. Выберите нужные.")
 
     def install_apk(self) -> None:
         if not self.host:
             messagebox.showwarning("Нет подключения", "Сначала подключите телевизор.")
             return
-        apk = filedialog.askopenfilename(title="Выберите APK-файл", filetypes=[("Android APK", "*.apk")])
-        if not apk:
+        apks = filedialog.askopenfilenames(
+            title="Выберите APK-файлы",
+            filetypes=[("Android APK", "*.apk")],
+        )
+        if not apks:
             return
-        self.run_async("Передаю APK на телевизор и устанавливаю…",
-                       lambda: (unified.install_apk(Path(apk)), unified.scan(self.out), unified.load_scan(self.out))[2],
-                       lambda data: (self.show_scan(data), messagebox.showinfo(
-                           "Готово", "Приложение установлено. Выберите его в списке и сохраните настройки на ТВ.")))
+        self.run_async(
+            f"Устанавливаю APK: 1 из {len(apks)}…",
+            lambda: self._install_apks(apks),
+            lambda result: (self.show_scan(result["data"]), messagebox.showinfo(
+                "Готово", f"Установлено APK: {result['count']}. Выберите приложения и сохраните настройки на ТВ.")),
+        )
+
+    def _install_apks(self, apks: tuple[str, ...]) -> dict:
+        for index, apk in enumerate(apks, 1):
+            name = Path(apk).name
+            self.root.after(0, self.status.set, f"Устанавливаю {index} из {len(apks)}: {name}…")
+            try:
+                unified.install_apk(Path(apk))
+            except (Exception, SystemExit) as exc:
+                raise RuntimeError(f"Не удалось установить {name}: {exc}") from exc
+        unified.scan(self.out)
+        return {"count": len(apks), "data": unified.load_scan(self.out)}
 
     def choose_color(self) -> None:
         chosen = colorchooser.askcolor(title="Цвет фона", initialcolor=self.background_var.get())[1]
         if chosen:
             self.background_var.set(chosen.upper())
+            self._save_state()
 
     def choose_wallpaper(self) -> None:
         selected = filedialog.askopenfilename(
@@ -245,11 +338,13 @@ class CleanYourTVApp:
             self.wallpaper_path = Path(selected)
             self.clear_wallpaper = False
             self.wallpaper_var.set(f"Обои: {self.wallpaper_path.name}")
+            self._save_state()
 
     def remove_wallpaper(self) -> None:
         self.wallpaper_path = None
         self.clear_wallpaper = True
         self.wallpaper_var.set("Обои будут убраны")
+        self._save_state()
 
     def configure_sleep_button(self) -> None:
         if not self.host:
@@ -273,11 +368,13 @@ class CleanYourTVApp:
             return
         name = str(key["name"]).removeprefix("KEYCODE_")
         self.sleep_key_info_var.set(f"Выбрана: {name} (код найден автоматически)")
+        self._save_state()
         self.status.set("Кнопка запомнена. Нажмите «Сохранить настройки на ТВ», затем установите лаунчер.")
 
     def clear_sleep_button(self) -> None:
         self.sleep_key_binding = ""
         self.sleep_key_info_var.set("Кнопка не выбрана")
+        self._save_state()
         self.status.set("Настройка кнопки сна отменена.")
 
     def selected_packages(self) -> list[str]:
@@ -298,7 +395,8 @@ class CleanYourTVApp:
             self.out.mkdir(parents=True, exist_ok=True)
             wallpaper_target = self.out / "wallpaper.jpg"
             if self.wallpaper_path:
-                shutil.copyfile(self.wallpaper_path, wallpaper_target)
+                if self.wallpaper_path.resolve() != wallpaper_target.resolve():
+                    shutil.copyfile(self.wallpaper_path, wallpaper_target)
             elif self.clear_wallpaper and wallpaper_target.exists():
                 wallpaper_target.unlink()
             unified.write_config(
@@ -312,6 +410,7 @@ class CleanYourTVApp:
                 self.weather_city_var.get(),
                 self.auto_sort_dock_var.get(),
             )
+            self._save_state()
         except (SystemExit, ValueError) as exc:
             messagebox.showwarning("Проверьте настройки", str(exc))
             return

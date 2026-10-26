@@ -22,7 +22,7 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-start "CleanYourTV" pyw "%~dp0CleanYourTV.py"
+start "CleanYourTV" "%ROOT%\tools\venv\Scripts\pythonw.exe" "%~dp0CleanYourTV.py"
 exit /b 0
 
 :error
