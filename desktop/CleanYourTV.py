@@ -51,7 +51,7 @@ class CleanYourTVApp:
         self.clear_wallpaper = False
         self.show_time_var = tk.BooleanVar(value=True)
         self.show_date_var = tk.BooleanVar(value=True)
-        self.weather_city_var = tk.StringVar()
+        self.weather_city_var = tk.StringVar(value="Санкт-Петербург, Россия")
         self._build()
 
     def _build(self) -> None:
