@@ -29,6 +29,7 @@ from typing import Iterable
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools"
 PACKAGE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
+COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 DEFAULT_REFERENCE = ROOT / "examples" / "xiaomi-tv-a-pro-2026" / "debloat.txt"
 DEVICE_KEYS = (
     "model",
@@ -93,6 +94,36 @@ def installed_from(text: str) -> list[str]:
             if line.startswith("package:") and PACKAGE_RE.fullmatch(line.split(":", 1)[1].strip())]
 
 
+def launchable_from(text: str, installed: Iterable[str]) -> list[str]:
+    """Extract installed package names from `cmd package query-activities --brief` output."""
+    installed_set = set(installed)
+    packages = set()
+    for raw in text.splitlines():
+        component = raw.strip().split(maxsplit=1)[0]
+        package = component.split("/", 1)[0]
+        if "/" in component and package in installed_set:
+            packages.add(package)
+    return sorted(packages)
+
+
+def selected_apps(apps: list[str], selection: str) -> list[str]:
+    """Turn a comma-separated, one-based selection into packages in the selected order."""
+    numbers = [part.strip() for part in selection.split(",") if part.strip()]
+    if not numbers:
+        raise SystemExit("choose at least one application number")
+    chosen = []
+    for raw in numbers:
+        if not raw.isdecimal():
+            raise SystemExit(f"not an application number: {raw!r}")
+        index = int(raw) - 1
+        if index < 0 or index >= len(apps):
+            raise SystemExit(f"application number is out of range: {raw}")
+        package = apps[index]
+        if package not in chosen:
+            chosen.append(package)
+    return chosen
+
+
 def scan(out_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     props = {
@@ -105,12 +136,15 @@ def scan(out_dir: Path) -> int:
     }
     installed = sorted(installed_from(run_tv("pm list packages -e --user 0")))
     disabled = sorted(installed_from(run_tv("pm list packages -d --user 0")))
+    leanback = run_tv("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER")
+    launcher = run_tv("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER")
     home = run_tv("cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME").strip().splitlines()
     wifi = run_tv("dumpsys wifi")
     data = {
         "device": props,
         "installed": installed,
         "disabled": disabled,
+        "apps": launchable_from(leanback + "\n" + launcher, installed),
         "home": next((line.strip() for line in reversed(home) if "/" in line), ""),
         "setupwraith_owns_wifi": (True if re.search(r"cname=\S*setupwraith", wifi)
                                    else False if "cname=" in wifi else None),
@@ -119,7 +153,7 @@ def scan(out_dir: Path) -> int:
     (out_dir / "scan.json").write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"saved {out_dir / 'scan.json'}")
     print(f"model: {props['model'] or 'unknown'}; Android {props['release'] or '?'}; SDK {props['sdk'] or '?'}")
-    print(f"installed: {len(installed)}; disabled: {len(disabled)}; Home: {data['home'] or 'unknown'}")
+    print(f"installed: {len(installed)}; launchable: {len(data['apps'])}; disabled: {len(disabled)}; Home: {data['home'] or 'unknown'}")
     if data["setupwraith_owns_wifi"] is True:
         print("WARNING: setupwraith appears to own the saved Wi-Fi network; do not disable it yet.")
     if data["adb_secure"] == "0":
@@ -197,7 +231,8 @@ def write_plan(scan_dir: Path, out: Path, reference: Path, keep: list[str], appr
     return 0
 
 
-def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: int) -> int:
+def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: int,
+                 background: str = "") -> int:
     for name in dock:
         if not PACKAGE_RE.fullmatch(name):
             raise SystemExit(f"not a dock package name: {name!r}")
@@ -206,11 +241,35 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
             raise SystemExit(f"invalid --app-key {entry!r}; use KEYCODE:package-or-action")
     if not 1 <= columns <= 8:
         raise SystemExit("--columns must be between 1 and 8")
+    if background and not COLOR_RE.fullmatch(background):
+        raise SystemExit("--background must be a colour such as #101820")
     out_dir.mkdir(parents=True, exist_ok=True)
     config = {"columns": columns, "dock_apps": dock, "app_keys": app_keys}
+    if background:
+        config["background_color"] = background
     path = out_dir / "config.json"
     path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"saved {path}; push it with tools/theme.sh {out_dir}")
+    return 0
+
+
+def setup(out_dir: Path, columns: int, background: str, sleep_key: int | None) -> int:
+    """Run the small interactive setup: scan, choose apps, and write the launcher configuration."""
+    scan(out_dir)
+    apps = load_scan(out_dir).get("apps", [])
+    if not isinstance(apps, list) or not all(isinstance(app, str) for app in apps):
+        raise SystemExit("the scan has no valid launchable-app list")
+    if not apps:
+        raise SystemExit("no launchable applications found; keep the scan.json and check the ADB connection")
+    print("\nInstalled launchable applications:")
+    for number, package in enumerate(apps, 1):
+        print(f"  {number}. {package}")
+    choice = input("Numbers for the home screen, in order (for example 1,3,4): ").strip()
+    app_keys = [f"{sleep_key}:sleep"] if sleep_key is not None else []
+    write_config(out_dir, selected_apps(apps, choice), app_keys, columns, background)
+    print(f"next: push the settings with tools/theme.ps1 {out_dir}")
+    if sleep_key is not None:
+        print("sleep action added: test it with a playing video before relying on it overnight")
     return 0
 
 
@@ -287,6 +346,12 @@ def parser() -> argparse.ArgumentParser:
     config.add_argument("--dock", default="", help="comma-separated package names")
     config.add_argument("--app-key", action="append", default=[])
     config.add_argument("--columns", type=int, default=6)
+    config.add_argument("--background", default="", help="solid background colour, for example #101820")
+    setup_p = sub.add_parser("setup", help="scan a TV, choose installed apps, and write a simple launcher config")
+    setup_p.add_argument("--out", type=Path, required=True)
+    setup_p.add_argument("--columns", type=int, default=6)
+    setup_p.add_argument("--background", default="", help="solid background colour, for example #101820")
+    setup_p.add_argument("--sleep-key", type=int, help="remote key code that locks the screen")
     for name, help_text in (("apply", "apply an approved plan"), ("restore", "restore a previous plan")):
         action = sub.add_parser(name, help=help_text)
         action.add_argument("plan", type=Path)
@@ -309,7 +374,12 @@ def main(argv: list[str] | None = None) -> int:
         return write_plan(args.scan, args.out, args.reference, args.keep, args.approve,
                           args.acknowledge_mismatch)
     if args.command == "config":
-        return write_config(args.out, [x for x in args.dock.split(",") if x], args.app_key, args.columns)
+        return write_config(args.out, [x for x in args.dock.split(",") if x], args.app_key, args.columns,
+                            args.background)
+    if args.command == "setup":
+        if args.sleep_key is not None and args.sleep_key < 1:
+            raise SystemExit("--sleep-key must be a positive key code")
+        return setup(args.out, args.columns, args.background, args.sleep_key)
     if args.command == "install":
         return install_launcher(args.input_key_service, args.home_key_service, args.restore_key_services,
                                 args.stock_launcher)

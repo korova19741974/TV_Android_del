@@ -59,6 +59,19 @@ class UnifiedPlanTest(unittest.TestCase):
             "columns": 6, "dock_apps": ["com.example.keep"], "app_keys": ["190:com.example.keep"]
         })
 
+    def test_launcher_apps_can_be_selected_by_number(self):
+        apps = unified.launchable_from("com.example.one/.MainActivity\ncom.example.two/.MainActivity\n",
+                                       ["com.example.keep", "com.example.one", "com.example.two"])
+        self.assertEqual(apps, ["com.example.one", "com.example.two"])
+        self.assertEqual(unified.selected_apps(apps, "2,1,2"), ["com.example.two", "com.example.one"])
+        with self.assertRaises(SystemExit):
+            unified.selected_apps(apps, "3")
+
+    def test_config_accepts_a_simple_background_and_sleep_key(self):
+        out = self.base / "theme"
+        unified.write_config(out, ["com.example.keep"], ["183:sleep"], 6, "#101820")
+        self.assertEqual(json.loads((out / "config.json").read_text())["background_color"], "#101820")
+
     def test_brand_scope_lists_only_xiaomi_profiles(self):
         self.assertIn("supported", unified.supported_platform_message("Xiaomi"))
         self.assertIn("Unsupported", unified.supported_platform_message("TCL"))
