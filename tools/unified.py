@@ -153,9 +153,12 @@ def install_apk(apk: Path) -> str:
             raise SystemExit(pushed.stderr.strip() or pushed.stdout.strip() or "could not upload the APK")
         installed = subprocess.run(base + ["pm", "install", "-r", "--user", "0", remote],
                                    capture_output=True, text=True)
-        if installed.returncode:
-            raise SystemExit(installed.stderr.strip() or installed.stdout.strip() or "APK installation failed")
-        return installed.stdout.strip() or "Success"
+        install_output = "\n".join(
+            part.strip() for part in (installed.stdout, installed.stderr) if part.strip()
+        )
+        if installed.returncode or not re.search(r"(?m)^\s*Success\s*$", install_output):
+            raise SystemExit(install_output or "APK installation failed")
+        return install_output
     finally:
         subprocess.run(base + ["rm", "-f", remote], capture_output=True, text=True)
 

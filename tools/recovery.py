@@ -115,7 +115,9 @@ def lan_address(host):
 
 
 def record_name(list_path, tag):
-    digest = hashlib.sha1(str(Path(list_path).resolve()).encode()).hexdigest()[:8]
+    digest = hashlib.sha1(
+        str(Path(list_path).resolve()).encode(), usedforsecurity=False
+    ).hexdigest()[:8]
     tag = re.sub(r"[^A-Za-z0-9.-]", "_", tag or "no-host")
     return Path.home() / ".cleanyourtv" / f"recovery-{tag}-{digest}.json"
 

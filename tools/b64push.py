@@ -58,7 +58,7 @@ def main():
     except OSError as error:
         sys.stderr.write(f"cannot read {local!r}: {error.strerror or error}. Nothing was sent to the TV.\n")
         return 2
-    want = hashlib.md5(data).hexdigest()
+    want = hashlib.md5(data, usedforsecurity=False).hexdigest()
 
     # Imported only now: tv.py exits at import time when TV_HOST is unset, which would hide the
     # usage message above.

@@ -1,7 +1,9 @@
 import json
-from pathlib import Path
+import subprocess
 import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from tools import unified
 
@@ -100,6 +102,30 @@ class UnifiedPlanTest(unittest.TestCase):
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):
             unified.install_apk(self.base / "notes.txt")
+
+    def test_apk_install_rejects_android_failure_output(self):
+        apk = self.base / "broken.apk"
+        apk.write_bytes(b"not a real apk")
+        responses = [
+            subprocess.CompletedProcess([], 0, "pushed", ""),
+            subprocess.CompletedProcess([], 0, "Failure [INSTALL_FAILED_INVALID_APK]", ""),
+            subprocess.CompletedProcess([], 0, "", ""),
+        ]
+        with mock.patch.object(unified.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(SystemExit, "INSTALL_FAILED_INVALID_APK"):
+                unified.install_apk(apk)
+
+    def test_apk_install_accepts_android_success_output(self):
+        apk = self.base / "valid.apk"
+        apk.write_bytes(b"test fixture")
+        responses = [
+            subprocess.CompletedProcess([], 0, "pushed", ""),
+            subprocess.CompletedProcess([], 0, "Success\n", ""),
+            subprocess.CompletedProcess([], 0, "", ""),
+        ]
+        with mock.patch.object(unified.subprocess, "run", side_effect=responses) as run:
+            self.assertEqual(unified.install_apk(apk), "Success")
+        self.assertEqual(run.call_count, 3)
 
     def test_brand_scope_lists_only_xiaomi_profiles(self):
         self.assertIn("supported", unified.supported_platform_message("Xiaomi"))

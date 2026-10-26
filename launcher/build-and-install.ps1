@@ -22,6 +22,20 @@ if (-not $TvHost) { throw 'pass -TvHost <tv ip> or set $env:TV_HOST' }
 $env:TV_HOST = $TvHost
 Set-Location $PSScriptRoot
 
+$py = if (Test-Path '..\tools\python\python.exe') { '..\tools\python\python.exe' } else { '..\tools\venv\Scripts\python.exe' }
+if (-not (Test-Path -LiteralPath $py)) { throw 'Python TV tools were not found. Start CleanYourTV.exe or create tools\venv first.' }
+$recoveryPython = if (Test-Path '..\tools\python\python.exe') { 'tools\python\python.exe' } else { 'tools\venv\Scripts\python.exe' }
+
+# Reject an incompatible TV before downloading build tools or compiling and uploading the APK.
+$minSdkMatch = Select-String -Path 'app\build.gradle' -Pattern '^\s*minSdk\s+(\d{1,3})\s*$' | Select-Object -First 1
+$minSdk = if ($minSdkMatch) { [int]$minSdkMatch.Matches[0].Groups[1].Value } else { 0 }
+$tvSdkLine = @(& $py -I ..\tools\tv.py 'getprop ro.build.version.sdk' 2>$null) |
+    Where-Object { "$_" -match '^\s*\d+\s*$' } | Select-Object -Last 1
+$tvSdk = if ($tvSdkLine) { [int]"$tvSdkLine".Trim() } else { 0 }
+if ($minSdk -gt 0 -and $tvSdk -gt 0 -and $tvSdk -lt $minSdk) {
+    throw "This TV runs SDK $tvSdk, but the launcher requires SDK $minSdk or newer (INSTALL_FAILED_OLDER_SDK). Nothing was built, uploaded or disabled."
+}
+
 $prepare = Join-Path (Split-Path -Parent $PSScriptRoot) 'desktop\prepare-windows.ps1'
 if (Test-Path -LiteralPath $prepare) { & $prepare }
 
@@ -33,13 +47,12 @@ if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
 }
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "$env:LOCALAPPDATA\Android\Sdk" }
 if (-not (Test-Path local.properties)) {
-    "sdk.dir=$($sdk -replace '\\', '\\')" | Out-File -Encoding ascii local.properties
+    "sdk.dir=$($sdk -replace '\\', '/')" | Out-File -Encoding ascii local.properties
 }
 
 .\gradlew.bat assembleRelease -q --console=plain
 if ($LASTEXITCODE -ne 0) { throw 'Gradle build failed' }
 
-$py = if (Test-Path '..\tools\python\python.exe') { '..\tools\python\python.exe' } else { '..\tools\venv\Scripts\python.exe' }
 # Which app owns Home differs by build; ask the TV, but only accept a launcher we recognise (the answer
 # can also be Android's chooser "android", the setup wizard, or another third-party launcher).
 $knownStock = @('com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher', 'com.mitv.tvhome')
@@ -68,16 +81,15 @@ $apk = 'app\build\outputs\apk\release\app-release.apk'
 if ($LASTEXITCODE -ne 0) { throw 'APK upload failed' }
 $out = & $py -I ..\tools\tv.py 'pm install -r /data/local/tmp/tvhome.apk; rm -f /data/local/tmp/tvhome.apk'
 Write-Host $out
+if ("$out" -match 'INSTALL_FAILED_OLDER_SDK') {
+    throw "The TV rejected the launcher because its Android SDK is older than the required SDK $minSdk (INSTALL_FAILED_OLDER_SDK). The stock launcher was left untouched."
+}
 if ($LASTEXITCODE -ne 0 -or "$out" -notmatch 'Success') { throw 'pm install failed; the stock launcher was left untouched' }
 # Stop the instance Android restarted mid-update, which can come up non-occluding (see build-and-install.sh,
 # #1101), and write back a key helper the force stop took off the list. Through stdin: Windows PowerShell 5.1
 # drops the inner double quotes from a native argument.
 's=$(settings get secure enabled_accessibility_services); a=$(settings get secure accessibility_enabled); am force-stop com.gathin.tvhome; case "$s" in *com.gathin.tvhome*) settings put secure enabled_accessibility_services ""; settings put secure enabled_accessibility_services "$s"; settings put secure accessibility_enabled "$a" ;; esac' |
     & $py -I ..\tools\tv.py --batch | Out-Null
-# Android 9 only accepts a component here; Android 10+ also takes a bare package name.
-$out = & $py -I ..\tools\tv.py 'cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity'
-Write-Host $out
-if ($LASTEXITCODE -ne 0 -or "$out" -match 'Error') { throw 'could not set the new launcher as home; the stock launcher was left untouched' }
 # Start the launcher on its own, before the stock Home is touched (see build-and-install.sh, #239):
 # in the batch a failed start only prints an Error line and the stock launcher would be disabled anyway.
 $start = (& $py -I ..\tools\tv.py 'am start -W -a android.intent.action.MAIN -c android.intent.category.HOME -n com.gathin.tvhome/.MainActivity') -join "`n"
@@ -122,9 +134,10 @@ function Undo-Handover {
     $rec = Join-Path $homeDir ("cleanyourtv-handover-" + ($TvHost -replace '[^A-Za-z0-9._-]', '_') + '.txt')
     $lines = @(
         "# cleanyourtv: the launcher handover on $TvHost did not finish. From the repo root:",
-        "tools\venv\Scripts\python.exe tools\tv.py 'pm enable --user 0 $StockLauncher'   # with `$env:TV_HOST='$TvHost'",
-        "tools\venv\Scripts\python.exe tools\tv.py 'cmd package set-home-activity --user 0 `$(cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME $StockLauncher | tail -n 1)'",
-        "# then check: tools\venv\Scripts\python.exe tools\tv.py '$homeQuery'"
+        "`$env:TV_HOST='$TvHost'",
+        "& '$recoveryPython' tools\tv.py 'pm enable --user 0 $StockLauncher'",
+        "& '$recoveryPython' tools\tv.py 'cmd package set-home-activity --user 0 `$(cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME $StockLauncher | tail -n 1)'",
+        "# then check: & '$recoveryPython' tools\tv.py '$homeQuery'"
     )
     try { $lines | Out-File -Encoding ascii $rec } catch { $rec = '' }
     Write-Warning "recovery is incomplete; Home still resolves to '$(if ($back) { $back } else { 'nothing' })'."
