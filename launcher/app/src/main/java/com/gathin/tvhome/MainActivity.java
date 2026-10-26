@@ -175,6 +175,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean advancedEffects;
     private TextView greeting;
     private View clockBlock;
+    private TextView weather;
+    private WeatherWidget weatherWidget;
     private View btnInputs;
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
@@ -461,8 +463,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cfg.dockTitle) hero.setVisibility(View.GONE);
         greeting = findViewById(R.id.greeting);
         clockBlock = findViewById(R.id.leftBlock);
+        weather = findViewById(R.id.weather);
         greetingColor = greeting.getCurrentTextColor();
         if (!cfg.showGreeting) greeting.setVisibility(View.GONE);
+        if (!cfg.showTime) {
+            findViewById(R.id.clock).setVisibility(View.GONE);
+            findViewById(R.id.ampm).setVisibility(View.GONE);
+            findViewById(R.id.clockDivider).setVisibility(View.GONE);
+        }
+        if (!cfg.showDate) {
+            findViewById(R.id.date).setVisibility(View.GONE);
+            findViewById(R.id.shamsiDate).setVisibility(View.GONE);
+            findViewById(R.id.lunarDate).setVisibility(View.GONE);
+            if (cfg.showTime) findViewById(R.id.clockDivider).setVisibility(View.GONE);
+        }
+        if (weather != null) {
+            weatherWidget = new WeatherWidget(weather, cfg.weatherCity);
+            weatherWidget.start();
+        }
         if (cfg.headerWhite) {
             // The clock's own white for the date and the line before it, instead of their dimmed whites.
             ((TextView) findViewById(R.id.date)).setTextColor(Color.WHITE);
@@ -1213,6 +1231,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onDestroy();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
+        if (weatherWidget != null) weatherWidget.stop();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);

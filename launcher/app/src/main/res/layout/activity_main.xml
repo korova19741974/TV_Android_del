@@ -290,6 +290,19 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/weather"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginTop="6dp"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="#A6FFFFFF"
+                    android:textSize="14sp"
+                    android:fontFamily="@string/font_regular"
+                    android:visibility="gone" />
+
             </LinearLayout>
 
             <!-- Shown only when show_stats is on. Outside leftBlock, so the top buttons stay level with the clock

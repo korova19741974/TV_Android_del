@@ -72,6 +72,14 @@ class UnifiedPlanTest(unittest.TestCase):
         unified.write_config(out, ["com.example.keep"], ["183:sleep"], 6, "#101820")
         self.assertEqual(json.loads((out / "config.json").read_text())["background_color"], "#101820")
 
+    def test_config_accepts_simple_widgets(self):
+        out = self.base / "widget-theme"
+        unified.write_config(out, ["com.example.keep"], [], 6, "#101820", False, True, "Moscow")
+        config = json.loads((out / "config.json").read_text())
+        self.assertFalse(config["show_time"])
+        self.assertTrue(config["show_date"])
+        self.assertEqual(config["weather_city"], "Moscow")
+
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):
             unified.install_apk(self.base / "notes.txt")

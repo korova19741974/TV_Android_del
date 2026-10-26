@@ -46,6 +46,12 @@ class CleanYourTVApp:
         self.host_var = tk.StringVar()
         self.background_var = tk.StringVar(value="#101820")
         self.sleep_key_var = tk.StringVar()
+        self.wallpaper_var = tk.StringVar(value="Обои не выбраны")
+        self.wallpaper_path: Path | None = None
+        self.clear_wallpaper = False
+        self.show_time_var = tk.BooleanVar(value=True)
+        self.show_date_var = tk.BooleanVar(value=True)
+        self.weather_city_var = tk.StringVar()
         self._build()
 
     def _build(self) -> None:
@@ -99,10 +105,26 @@ class CleanYourTVApp:
             row=0, column=1, padx=10, sticky="w")
         ttk.Button(settings, text="Выбрать цвет", style="Small.TButton", command=self.choose_color).grid(
             row=0, column=2, sticky="w")
-        ttk.Label(settings, text="Код кнопки сна (необязательно)", style="Body.TLabel").grid(
-            row=0, column=3, padx=(28, 10), sticky="w")
-        ttk.Entry(settings, textvariable=self.sleep_key_var, width=10, font=("Segoe UI", 12)).grid(
+        ttk.Button(settings, text="Выбрать обои", style="Small.TButton", command=self.choose_wallpaper).grid(
+            row=0, column=3, padx=(22, 8), sticky="w")
+        ttk.Button(settings, text="Убрать обои", style="Small.TButton", command=self.remove_wallpaper).grid(
             row=0, column=4, sticky="w")
+        ttk.Label(settings, textvariable=self.wallpaper_var, style="Body.TLabel").grid(
+            row=1, column=0, columnspan=5, sticky="w", pady=(9, 0))
+        ttk.Checkbutton(settings, text="Показывать время", variable=self.show_time_var).grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Checkbutton(settings, text="Показывать дату", variable=self.show_date_var).grid(
+            row=2, column=2, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(settings, text="Город для погоды", style="Body.TLabel").grid(
+            row=3, column=0, sticky="w", pady=(10, 0))
+        ttk.Entry(settings, textvariable=self.weather_city_var, width=22, font=("Segoe UI", 12)).grid(
+            row=3, column=1, columnspan=2, padx=10, sticky="w", pady=(10, 0))
+        ttk.Label(settings, text="оставьте пустым, чтобы скрыть погоду", style="Body.TLabel").grid(
+            row=3, column=3, columnspan=2, sticky="w", pady=(10, 0))
+        ttk.Label(settings, text="Код кнопки сна (необязательно)", style="Body.TLabel").grid(
+            row=4, column=0, padx=(0, 10), sticky="w", pady=(10, 0))
+        ttk.Entry(settings, textvariable=self.sleep_key_var, width=10, font=("Segoe UI", 12)).grid(
+            row=4, column=1, sticky="w", pady=(10, 0))
 
         actions = ttk.Frame(outer)
         actions.pack(fill="x")
@@ -124,7 +146,8 @@ class CleanYourTVApp:
             try:
                 result = work()
             except (Exception, SystemExit) as exc:  # the dialog is the user-facing error boundary
-                self.root.after(0, lambda: messagebox.showerror("Не удалось выполнить действие", str(exc)))
+                error_text = str(exc)
+                self.root.after(0, lambda: messagebox.showerror("Не удалось выполнить действие", error_text))
             else:
                 self.root.after(0, lambda: done(result))
 
@@ -170,6 +193,21 @@ class CleanYourTVApp:
         if chosen:
             self.background_var.set(chosen.upper())
 
+    def choose_wallpaper(self) -> None:
+        selected = filedialog.askopenfilename(
+            title="Выберите изображение для обоев",
+            filetypes=[("Изображения", "*.jpg *.jpeg *.png *.webp")],
+        )
+        if selected:
+            self.wallpaper_path = Path(selected)
+            self.clear_wallpaper = False
+            self.wallpaper_var.set(f"Обои: {self.wallpaper_path.name}")
+
+    def remove_wallpaper(self) -> None:
+        self.wallpaper_path = None
+        self.clear_wallpaper = True
+        self.wallpaper_var.set("Обои будут убраны")
+
     def selected_packages(self) -> list[str]:
         chosen = [self.apps[index] for index in self.app_list.curselection()]
         if not chosen:
@@ -186,7 +224,22 @@ class CleanYourTVApp:
             packages = self.selected_packages()
             sleep = self.sleep_key_var.get().strip()
             app_keys = [f"{sleep}:sleep"] if sleep else []
-            unified.write_config(self.out, packages, app_keys, 6, self.background_var.get().strip())
+            self.out.mkdir(parents=True, exist_ok=True)
+            wallpaper_target = self.out / "wallpaper.jpg"
+            if self.wallpaper_path:
+                shutil.copyfile(self.wallpaper_path, wallpaper_target)
+            elif self.clear_wallpaper and wallpaper_target.exists():
+                wallpaper_target.unlink()
+            unified.write_config(
+                self.out,
+                packages,
+                app_keys,
+                6,
+                self.background_var.get().strip(),
+                self.show_time_var.get(),
+                self.show_date_var.get(),
+                self.weather_city_var.get(),
+            )
         except (SystemExit, ValueError) as exc:
             messagebox.showwarning("Проверьте настройки", str(exc))
             return

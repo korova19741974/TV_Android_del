@@ -256,7 +256,8 @@ def write_plan(scan_dir: Path, out: Path, reference: Path, keep: list[str], appr
 
 
 def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: int,
-                 background: str = "") -> int:
+                 background: str = "", show_time: bool | None = None,
+                 show_date: bool | None = None, weather_city: str = "") -> int:
     for name in dock:
         if not PACKAGE_RE.fullmatch(name):
             raise SystemExit(f"not a dock package name: {name!r}")
@@ -271,6 +272,15 @@ def write_config(out_dir: Path, dock: list[str], app_keys: list[str], columns: i
     config = {"columns": columns, "dock_apps": dock, "app_keys": app_keys}
     if background:
         config["background_color"] = background
+    if show_time is not None:
+        config["show_time"] = show_time
+    if show_date is not None:
+        config["show_date"] = show_date
+    weather_city = weather_city.strip()
+    if len(weather_city) > 80 or any(ord(char) < 32 for char in weather_city):
+        raise SystemExit("--weather-city must be a short city name")
+    if weather_city:
+        config["weather_city"] = weather_city
     path = out_dir / "config.json"
     path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"saved {path}; push it with tools/theme.sh {out_dir}")
