@@ -101,7 +101,7 @@
         <!-- The system input switcher (com.android.tv.action.VIEW_INPUTS), which is what the remote's Input
              button becomes through the TV's Live TV app or InputKeyService. Disabled here and switched on by
              MainActivity only while handle_view_inputs is true (config.xml or a theme), for sets whose stock
-             launcher was the only handler of the action (Hisense huangshan, Android TV 10): kept off, a TV with
+             launcher was the only handler of the action on some Android TV 10 firmware: kept off, a TV with
              its own input picker never sees a second candidate and a chooser. -->
         <activity
             android:name=".InputsRequestActivity"

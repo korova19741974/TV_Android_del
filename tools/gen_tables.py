@@ -5,7 +5,7 @@ Usage:
     python tools/gen_tables.py
     python tools/gen_tables.py --check
 
-Only Xiaomi, Hisense and TCL Android TV / Google TV profiles are accepted.
+Only selected Xiaomi and TCL Android TV / Google TV profiles are accepted.
 """
 import argparse
 import json
@@ -65,10 +65,11 @@ def load(root: Path) -> list[tuple[str, dict]]:
             problems += check_cell(where, key, data.get(key))
         if "readme_os" in data:
             problems += check_cell(where, "readme_os", data["readme_os"])
-        brand, os_name = data.get("brand"), data.get("os")
-        if isinstance(brand, str) and isinstance(os_name, str) and not is_supported_profile(brand, os_name):
-            problems.append(f"{where}: only Android TV/Google TV profiles for "
-                            + ", ".join(SUPPORTED_BRANDS) + " are supported")
+        if not is_supported_profile(data):
+            problems.append(
+                f"{where}: profile is outside this fork's scope: Xiaomi Mi/TV Box or Android 14 TVs; "
+                "TCL at 75 inches or with no stated diagonal"
+            )
         entries.append((folder.name, data))
     if problems:
         raise Problem("\n".join(problems))

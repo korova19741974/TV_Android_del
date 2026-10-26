@@ -69,7 +69,7 @@ final class ServiceRepair {
             if (!missing) return;
             // A killed helper also lands on Android's "Crashed services" list (dumpsys accessibility), and a
             // crashed service is never bound again, so putting it back on the list alone binds nothing and the
-            // switch falls back to 0 (Hisense songshan, Android 11, whose standby kills third-party apps). Android
+            // switch falls back to 0 on firmware whose standby kills third-party apps. Android
             // drops the crashed mark when it sees the helper leave the enabled list, so add, remove, add: after a
             // force stop the list is already empty, and a removal that changes nothing is not seen. Off the main
             // thread, so Home does not wait for the pauses. Each write first checks the list still reads what the
