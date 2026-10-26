@@ -63,6 +63,8 @@
         <!-- China-market MIUI TV firmware: the Settings and Wi-Fi pills fall back to Xiaomi's settings app. -->
         <package android:name="com.xiaomi.mitv.settings" />
         <package android:name="com.tcl.settings" />
+        <!-- Amnezia VPN: shown as a dedicated button and opened from the launcher. -->
+        <package android:name="org.amnezia.vpn" />
     </queries>
 
     <application

@@ -232,10 +232,8 @@
     <!-- The date and the line between the clock and the date in the clock's full white instead of dimmed. Can also be
          set with "header_white" in a theme. -->
     <bool name="header_white">false</bool>
-    <!-- Optional VPN app the network pill opens (hold the pill for Wi-Fi settings), e.g. the package of the
-         VPN you use. Empty: the pill opens Wi-Fi settings. The green VPN badge shows for any VPN either way;
-         with an app set here, a red "VPN off" badge also shows while no VPN is up. -->
-    <string name="vpn_app" translatable="false"></string>
+    <!-- Amnezia is detected automatically. The value can still be replaced in a theme's config.json. -->
+    <string name="vpn_app" translatable="false">org.amnezia.vpn</string>
     <!-- The VPN as its own pill after the network pill, instead of a badge inside it: solid green with a lock while a
          VPN is up, solid red "VPN off" while none is and vpn_app is installed. Pressing it opens vpn_app (without it,
          the App library, or VPN settings when app_library is off), and the network pill then always opens Wi-Fi
@@ -243,7 +241,7 @@
          label with icon_only_buttons, since the red state has no icon. A VPN app's kill switch keeps a VPN up while
          the app says disconnected (it holds the tunnel to block traffic), so the pill stays green then. Can also be
          set with "vpn_pill" in a theme. -->
-    <bool name="vpn_pill">false</bool>
+    <bool name="vpn_pill">true</bool>
     <!-- The dock as its own row: a lighter band, no names under the tiles, parked low on the screen with the top
          shelf above it. false makes the dock apps simply the first tiles of one plain grid (still in dock_apps
          order, no empty slots), with names under every tile and the glow behind every focused tile. -->

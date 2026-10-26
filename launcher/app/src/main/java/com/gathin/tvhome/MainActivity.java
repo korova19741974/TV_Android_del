@@ -719,6 +719,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnVpn.setOnClickListener(v -> openVpnPill());
+        btnVpn.setOnLongClickListener(v -> {
+            // The standard App info page is where TV firmware exposes background and cleanup protection.
+            Intent info = SystemSettings.appInfo(this, vpnApp);
+            if (info != null) open(info);
+            return true;
+        });
         btnWifi.setOnLongClickListener(v -> {
             open(systemIntent(Settings.ACTION_WIFI_SETTINGS));
             return true;
@@ -2820,7 +2826,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         libraryFromVpnPill = true;
     }
 
-    /** vpn_pill: the whole pill solid green with a lock while a VPN is up, solid red "VPN off" while it is not. */
+    /** vpn_pill: the whole pill solid green with a lock while Amnezia is up, solid red while it is not. */
     private void updateVpnPill(boolean vpn) {
         int state = VpnBadge.pillState(vpn, vpnAppIntent() != null);
         if (state == VpnBadge.PILL_HIDDEN) {
@@ -2835,7 +2841,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             boolean up = state == VpnBadge.PILL_UP;
             // Dark ink on green, white on red, focused or not: the white focus ring is drawn by the background.
             ColorStateList ink = ColorStateList.valueOf(up ? VpnBadge.INK : VpnBadge.INK_OFF);
-            btnVpn.setText(up ? R.string.vpn : R.string.vpn_off);
+            btnVpn.setText(up ? R.string.amnezia_on : R.string.amnezia_off);
             btnVpn.setTextColor(ink);
             btnVpn.setBackground(VpnBadge.pillBackground(up, density));
             btnVpn.setCompoundDrawablesRelativeWithIntrinsicBounds(up ? R.drawable.ic_lock : 0, 0, 0, 0);

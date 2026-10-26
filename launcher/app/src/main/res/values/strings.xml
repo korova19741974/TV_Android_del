@@ -44,6 +44,8 @@
     <string name="dream_name">Часы</string>
     <string name="vpn">VPN</string>
     <string name="vpn_off">VPN отключён</string>
+    <string name="amnezia_on">Amnezia включена</string>
+    <string name="amnezia_off">Amnezia выключена</string>
     <string name="home_settings">Главный экран по умолчанию</string>
     <string name="home_settings_help">Выберите исходный главный экран, чтобы перестать использовать CleanYourTV по умолчанию, или CleanYourTV, чтобы вернуться. Исходный экран должен быть включён, а телевизор должен поддерживать выбор главного экрана. Если он отключён, сначала запустите скрипт восстановления.</string>
     <string name="input_key_service_description">Открывает список источников при нажатии кнопки выбора источника на пульте.</string>
