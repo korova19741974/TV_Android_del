@@ -1,6 +1,8 @@
 @echo off
 setlocal
 set "ROOT=%~dp0.."
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\desktop\prepare-windows.ps1"
+if errorlevel 1 goto :error
 where py >nul 2>&1
 if errorlevel 1 (
     echo Python 3 is required. Install it and start this file again.
