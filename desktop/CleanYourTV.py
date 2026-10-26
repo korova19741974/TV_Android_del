@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import os
 import json
+import importlib
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -15,7 +17,17 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 def application_root() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        executable_dir = Path(sys.executable).resolve().parent
+        candidates = [executable_dir]
+        if sys.platform == "darwin":
+            # PyInstaller places data files in Contents/Resources while the executable lives in
+            # Contents/MacOS. Keep the same ROOT contract for the GUI and the bundled shell tools.
+            candidates.extend((executable_dir.parent / "Resources",
+                               executable_dir.parent.parent / "Resources"))
+        for candidate in candidates:
+            if (candidate / "launcher").is_dir() and (candidate / "tools").is_dir():
+                return candidate
+        return executable_dir
     here = Path(__file__).resolve()
     for parent in (here.parent, *here.parents):
         if (parent / "launcher").is_dir() and (parent / "tools").is_dir():
@@ -26,6 +38,40 @@ def application_root() -> Path:
 ROOT = application_root()
 sys.path.insert(0, str(ROOT))
 from tools import unified  # noqa: E402
+
+
+TOOL_MODULES = {
+    "tv.py": "tools.tv",
+    "b64push.py": "tools.b64push",
+    "theme_restart.py": "tools.theme_restart",
+}
+
+
+def run_tool_python(arguments: list[str]) -> int:
+    """Run a bundled helper through the PyInstaller executable on macOS.
+
+    The DMG cannot rely on a second Python installation. Shell helpers still use their normal
+    ``python -I script.py`` shape, while this small dispatcher maps that call to modules already
+    packaged inside the application.
+    """
+    args = list(arguments)
+    if args[:1] == ["-I"]:
+        args = args[1:]
+    if not args:
+        raise SystemExit("missing bundled helper name")
+    if args[0] == "-c":
+        if len(args) < 2:
+            raise SystemExit("missing bundled Python code")
+        sys.argv = ["-c", *args[2:]]
+        namespace = {"__name__": "__main__"}
+        exec(compile(args[1], "<bundled-helper>", "exec"), namespace, namespace)
+        return 0
+    module_name = TOOL_MODULES.get(Path(args[0]).name)
+    if module_name is None:
+        raise SystemExit(f"unsupported bundled helper: {args[0]}")
+    sys.argv = [args[0], *args[1:]]
+    module = importlib.import_module(module_name)
+    return int(module.main())
 
 APP_LABELS = {
     "com.google.android.youtube.tv": "YouTube",
@@ -52,7 +98,11 @@ class CleanYourTVApp:
         self.root.configure(bg="#F8FAFC")
         self.apps: list[str] = []
         self.host = ""
-        self.out = ROOT / "work" / "desktop-tv"
+        if sys.platform == "darwin" and getattr(sys, "frozen", False):
+            data_root = Path.home() / "Library" / "Application Support" / "CleanYourTV"
+        else:
+            data_root = ROOT / "work"
+        self.out = data_root / "desktop-tv"
         self.state_file = self.out / "desktop-state.json"
         self.status = tk.StringVar(value="Введите адрес телевизора и нажмите «Подключить».")
         self.host_var = tk.StringVar()
@@ -67,8 +117,36 @@ class CleanYourTVApp:
         self.weather_city_var = tk.StringVar(value="Санкт-Петербург, Россия")
         self.auto_sort_dock_var = tk.BooleanVar(value=True)
         self.busy = False
+        if sys.platform == "darwin":
+            os.environ["CLEANYOURTV_KEYDIR"] = str(self.out / "adbkey")
+            self._ensure_tool_runner()
         self._load_state()
         self._build()
+
+    def _ensure_tool_runner(self) -> Path | None:
+        """Create a writable helper command for shell scripts inside a read-only .app bundle."""
+        if sys.platform != "darwin":
+            return None
+        self.out.mkdir(parents=True, exist_ok=True)
+        runner = self.out / "clean-your-tv-tools.sh"
+        if getattr(sys, "frozen", False):
+            target = f"exec {shlex.quote(str(Path(sys.executable).resolve()))} --tool-python \"$@\"\n"
+        else:
+            source = Path(__file__).resolve()
+            target = (f"exec {shlex.quote(sys.executable)} {shlex.quote(str(source))} "
+                      "--tool-python \"$@\"\n")
+        runner.write_text("#!/bin/sh\n" + target, encoding="utf-8")
+        runner.chmod(0o700)
+        os.environ["CLEANYOURTV_TOOL_RUNNER"] = str(runner)
+        os.environ["PYTHON"] = str(runner)
+        return runner
+
+    def _prebuilt_apk(self) -> Path | None:
+        candidates = (
+            ROOT / "prebuilt" / "app-release.apk",
+            ROOT / "launcher" / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk",
+        )
+        return next((path for path in candidates if path.is_file()), None)
 
     @staticmethod
     def _read_json(path: Path) -> dict:
@@ -418,6 +496,18 @@ class CleanYourTVApp:
                        lambda _: self.status.set("Настройки сохранены на ТВ."))
 
     def push_theme(self) -> str:
+        if sys.platform == "darwin":
+            self._ensure_tool_runner()
+            env = os.environ.copy()
+            env["TV_HOST"] = self.host
+            env["PYTHON"] = str(self._ensure_tool_runner())
+            result = subprocess.run(
+                ["bash", str(ROOT / "tools" / "theme.sh"), str(self.out)],
+                cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or result.stdout.strip() or
+                                   "не удалось отправить настройки")
+            return result.stdout
         powershell = shutil.which("powershell") or shutil.which("pwsh")
         if not powershell:
             raise RuntimeError("На компьютере не найден PowerShell.")
@@ -436,6 +526,31 @@ class CleanYourTVApp:
             messagebox.showwarning("Нет подключения", "Сначала подключите телевизор.")
             return
         if not messagebox.askyesno("Установка лаунчера", "Установить CleanYourTV как главный экран телевизора?"):
+            return
+        if sys.platform == "darwin":
+            def build_macos() -> str:
+                runner = self._ensure_tool_runner()
+                if runner is None:
+                    raise RuntimeError("Не удалось подготовить служебные команды macOS.")
+                env = os.environ.copy()
+                env["TV_HOST"] = self.host
+                env["PYTHON"] = str(runner)
+                env["INPUT_KEY_SERVICE"] = "1"
+                env["HOME_KEY_SERVICE"] = "1"
+                apk = self._prebuilt_apk()
+                if apk is not None:
+                    env["PREBUILT_APK"] = str(apk)
+                result = subprocess.run(
+                    ["bash", str(ROOT / "launcher" / "build-and-install.sh")],
+                    cwd=ROOT, env=env, capture_output=True, text=True,
+                    encoding="utf-8", errors="replace")
+                if result.returncode:
+                    raise RuntimeError(result.stderr.strip() or result.stdout.strip() or
+                                       "установка лаунчера не удалась")
+                return result.stdout
+
+            self.run_async("Устанавливаю лаунчер на телевизор…", build_macos,
+                           lambda _: self.status.set("Лаунчер установлен. Проверьте кнопки пульта."))
             return
         powershell = shutil.which("powershell") or shutil.which("pwsh")
         if not powershell:
@@ -464,4 +579,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--tool-python"]:
+        raise SystemExit(run_tool_python(sys.argv[2:]))
     main()

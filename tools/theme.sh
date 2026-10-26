@@ -19,7 +19,8 @@ case "$THEME_ARG" in
 esac
 cd "$(dirname "$0")"
 : "${TV_HOST:?set TV_HOST to the TV IP address, e.g. TV_HOST=192.168.1.50 $0 work/my-tv}"
-PY=venv/bin/python
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then PY=venv/bin/python; fi
 [ -x "$PY" ] || PY=venv/Scripts/python.exe
 [ -x "$PY" ] || { echo "run: python3 -m venv tools/venv && tools/venv/bin/pip install -r tools/requirements.txt" >&2; exit 1; }
 export MSYS_NO_PATHCONV=1

@@ -28,7 +28,15 @@ from typing import Iterable
 
 def application_root() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        executable_dir = Path(sys.executable).resolve().parent
+        candidates = [executable_dir]
+        if sys.platform == "darwin":
+            candidates.extend((executable_dir.parent / "Resources",
+                               executable_dir.parent.parent / "Resources"))
+        for candidate in candidates:
+            if (candidate / "launcher").is_dir() and (candidate / "tools").is_dir():
+                return candidate
+        return executable_dir
     here = Path(__file__).resolve()
     for parent in (here.parent, *here.parents):
         if (parent / "launcher").is_dir() and (parent / "tools").is_dir():
@@ -41,6 +49,9 @@ TOOLS = ROOT / "tools"
 
 
 def tool_python() -> list[str]:
+    runner = os.environ.get("CLEANYOURTV_TOOL_RUNNER")
+    if runner and Path(runner).is_file():
+        return [runner]
     if getattr(sys, "frozen", False):
         bundled = TOOLS / "python" / "python.exe"
         if bundled.is_file():

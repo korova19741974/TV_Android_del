@@ -156,7 +156,10 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     dev = None
     try:
-        from tv import connect
+        try:
+            from tools.tv import connect
+        except ImportError:
+            from tv import connect
         dev = connect()
         restart(dev)
     except Exception as error:

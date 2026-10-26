@@ -93,7 +93,9 @@ try:
         raise ValueError
 except ValueError:
     sys.exit(f"not a port number: {_port_str!r}")
-KEYDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "adbkey")
+# A packaged macOS app stores keys in the user's writable Application Support folder. The source and
+# Windows bundle keep the historical tools/adbkey location unless the GUI supplies an override.
+KEYDIR = os.environ.get("CLEANYOURTV_KEYDIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "adbkey"))
 KEY = os.path.join(KEYDIR, "adbkey")
 # Reuse the stock adb key when the TV already trusts it (platform-tools / Android Studio users), so the
 # "Allow USB debugging?" prompt doesn't come back a second time for this client. From #105. While

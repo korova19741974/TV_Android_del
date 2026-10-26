@@ -63,7 +63,10 @@ def main():
     # Imported only now: tv.py exits at import time when TV_HOST is unset, which would hide the
     # usage message above.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import tv  # noqa: E402
+    try:
+        from tools import tv  # noqa: E402
+    except ImportError:
+        import tv  # noqa: E402
 
     # A refused port or a TV that cannot be reached gets tv.py's own explanation, not a traceback, and
     # exits 2 as tv.py does: nothing was sent. An error tv.py has nothing to add to keeps its traceback.
