@@ -27,7 +27,7 @@ jobs:
         working-directory: launcher
         run: |
           chmod +x gradlew build-and-install.sh
-          ./gradlew assembleRelease --no-daemon --console=plain
+          ./gradlew testReleaseUnitTest assembleRelease --no-daemon --console=plain
       - uses: actions/upload-artifact@v4
         with:
           name: launcher-apk

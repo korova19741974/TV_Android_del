@@ -302,6 +302,10 @@ final class RemoteKeys {
     /** Runs an action word; false for an app or an input. Needs no permission the launcher does not already have. */
     private static boolean runAction(Context ctx, String target) {
         if (!isAction(target)) return false;
+        if ("sleep".equals(target) && ctx instanceof AccessibilityService
+                && ScreenSleep.fadeAndLock((AccessibilityService) ctx)) {
+            return true;
+        }
         int global = globalAction(target, Build.VERSION.SDK_INT);
         if (global != 0) {
             if (ctx instanceof AccessibilityService) ((AccessibilityService) ctx).performGlobalAction(global);

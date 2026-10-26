@@ -233,10 +233,14 @@ class CleanYourTVApp:
         connection = ttk.LabelFrame(outer, text="1. Подключение", padding=16)
         connection.pack(fill="x", pady=(0, 14))
         ttk.Label(connection, text="IP-адрес телевизора", style="Body.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(connection, textvariable=self.host_var, width=24, font=("Segoe UI", 13)).grid(
+        self.host_picker = ttk.Combobox(connection, textvariable=self.host_var, width=24,
+                                         font=("Segoe UI", 13))
+        self.host_picker.grid(
             row=0, column=1, padx=12, sticky="ew")
+        ttk.Button(connection, text="Найти телевизор", style="Small.TButton",
+                   command=self.find_tvs).grid(row=0, column=2, padx=(0, 10), sticky="e")
         ttk.Button(connection, text="Подключить и проверить", style="Big.TButton",
-                   command=self.connect).grid(row=0, column=2, sticky="e")
+                   command=self.connect).grid(row=0, column=3, sticky="e")
         connection.columnconfigure(1, weight=1)
 
         apps_frame = ttk.LabelFrame(outer, text="2. Приложения на главном экране", padding=16)
@@ -316,7 +320,8 @@ class CleanYourTVApp:
 
         def visit(widget: tk.Misc) -> None:
             for child in widget.winfo_children():
-                if isinstance(child, (tk.Entry, tk.Listbox, ttk.Button, ttk.Checkbutton, ttk.Entry)):
+                if isinstance(child, (tk.Entry, tk.Listbox, ttk.Button, ttk.Checkbutton, ttk.Entry,
+                                      ttk.Combobox)):
                     child.configure(state=state)
                 visit(child)
 
@@ -354,6 +359,26 @@ class CleanYourTVApp:
         self._save_state()
         self.run_async("Читаю данные телевизора… Подтвердите доступ на экране ТВ, если появится запрос.",
                        lambda: (unified.scan(self.out), unified.load_scan(self.out))[1], self.show_scan)
+
+    def find_tvs(self) -> None:
+        self.run_async("Ищу телевизоры в домашней сети…", unified.discover_tvs, self.show_discovered_tvs)
+
+    def show_discovered_tvs(self, hosts: list[str]) -> None:
+        self.host_picker.configure(values=hosts)
+        if not hosts:
+            self.status.set("Телевизор не найден. Введите IP-адрес вручную и проверьте отладку по сети.")
+            messagebox.showinfo(
+                "Телевизор не найден",
+                "Не найдено устройство с включённой отладкой по сети. "
+                "Проверьте, что телевизор и компьютер в одной сети, затем введите IP-адрес вручную.",
+            )
+            return
+        if len(hosts) == 1:
+            self.host_var.set(hosts[0])
+            self.status.set(f"Найден телевизор: {hosts[0]}. Нажмите «Подключить и проверить».")
+            return
+        self.status.set(f"Найдено устройств: {len(hosts)}. Выберите адрес в списке и нажмите «Подключить и проверить».")
+        self.host_picker.focus_set()
 
     def refresh(self) -> None:
         if not self.host:

@@ -109,6 +109,20 @@ class UnifiedPlanTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             unified.parse_learned_key("button not found")
 
+    def test_discovery_scans_only_local_private_subnets(self):
+        hosts = unified.discovery_hosts(["192.168.50.20", "127.0.0.1", "8.8.8.8", "not-an-ip"])
+        self.assertEqual(len(hosts), 253)
+        self.assertIn("192.168.50.1", hosts)
+        self.assertIn("192.168.50.254", hosts)
+        self.assertNotIn("192.168.50.20", hosts)
+
+    def test_discovery_reports_only_devices_with_adb_port_open(self):
+        found = unified.discover_tvs(
+            addresses=["192.168.50.20"],
+            probe=lambda host: host in {"192.168.50.7", "192.168.50.99"},
+        )
+        self.assertEqual(found, ["192.168.50.7", "192.168.50.99"])
+
     def test_apk_install_rejects_non_apk_before_connecting(self):
         with self.assertRaises(SystemExit):
             unified.install_apk(self.base / "notes.txt")
