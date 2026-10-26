@@ -26,8 +26,30 @@ import subprocess
 import sys
 from typing import Iterable
 
-ROOT = Path(__file__).resolve().parent.parent
+def application_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+ROOT = application_root()
 TOOLS = ROOT / "tools"
+
+
+def tool_python() -> list[str]:
+    if getattr(sys, "frozen", False):
+        bundled = TOOLS / "python" / "python.exe"
+        if bundled.is_file():
+            return [str(bundled)]
+    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
+                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
+    if python is None:
+        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
+    return [str(python)]
+
+
+def tool_command(script: str, *args: str) -> list[str]:
+    return tool_python() + ["-I", str(TOOLS / script), *args]
 PACKAGE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
 COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 DEFAULT_REFERENCE = ROOT / "examples" / "xiaomi-tv-a-pro-2026" / "debloat.txt"
@@ -77,11 +99,7 @@ def candidates(reference_names: Iterable[str], installed: Iterable[str], disable
 def run_tv(command: str) -> str:
     if not os.environ.get("TV_HOST"):
         raise SystemExit("set TV_HOST to the TV IP address")
-    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
-                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
-    if python is None:
-        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
-    result = subprocess.run([str(python), "-I", str(TOOLS / "tv.py"), command],
+    result = subprocess.run(tool_command("tv.py", command),
                             capture_output=True, text=True)
     if result.returncode:
         raise SystemExit(result.stderr.strip() or result.stdout.strip() or
@@ -93,11 +111,7 @@ def run_tv_args(args: list[str]) -> str:
     """Run a tv.py mode that needs separate command-line arguments."""
     if not os.environ.get("TV_HOST"):
         raise SystemExit("set TV_HOST to the TV IP address")
-    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
-                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
-    if python is None:
-        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
-    result = subprocess.run([str(python), "-I", str(TOOLS / "tv.py"), *args],
+    result = subprocess.run(tool_command("tv.py", *args),
                             capture_output=True, text=True)
     if result.returncode:
         raise SystemExit(result.stderr.strip() or result.stdout.strip() or
@@ -127,12 +141,8 @@ def install_apk(apk: Path) -> str:
     apk = apk.resolve()
     if not apk.is_file() or apk.suffix.casefold() != ".apk":
         raise SystemExit("choose an existing .apk file")
-    python = next((p for p in (TOOLS / "venv" / "bin" / "python",
-                               TOOLS / "venv" / "Scripts" / "python.exe") if p.is_file()), None)
-    if python is None:
-        raise SystemExit("run: python -m venv tools/venv; tools/venv/Scripts/python.exe -m pip install -r tools/requirements.txt")
     remote = "/data/local/tmp/cleanyourtv-install.apk"
-    base = [str(python), "-I", str(TOOLS / "tv.py")]
+    base = tool_command("tv.py")
     try:
         pushed = subprocess.run(base + ["--push", str(apk), remote], capture_output=True, text=True)
         if pushed.returncode:

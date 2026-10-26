@@ -12,7 +12,13 @@ import threading
 import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
-ROOT = Path(__file__).resolve().parent.parent
+def application_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+ROOT = application_root()
 sys.path.insert(0, str(ROOT))
 from tools import unified  # noqa: E402
 

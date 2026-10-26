@@ -15,7 +15,7 @@ $env:TV_HOST = $TvHost
 # Resolve the theme folder against the caller's directory before moving into tools\.
 if ($Theme) { $Theme = (Resolve-Path $Theme).Path }
 Set-Location $PSScriptRoot
-$py = 'venv\Scripts\python.exe'
+$py = if (Test-Path 'python\python.exe') { 'python\python.exe' } else { 'venv\Scripts\python.exe' }
 if (-not (Test-Path $py)) { throw 'run: python -m venv tools\venv; tools\venv\Scripts\python.exe -m pip install -r tools\requirements.txt' }
 $pkg = 'com.gathin.tvhome'
 # Runs tools\tv.py or b64push.py and stops on a non-zero exit: 'Stop' only covers cmdlets, so a failed

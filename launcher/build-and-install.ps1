@@ -39,7 +39,7 @@ if (-not (Test-Path local.properties)) {
 .\gradlew.bat assembleRelease -q --console=plain
 if ($LASTEXITCODE -ne 0) { throw 'Gradle build failed' }
 
-$py = '..\tools\venv\Scripts\python.exe'
+$py = if (Test-Path '..\tools\python\python.exe') { '..\tools\python\python.exe' } else { '..\tools\venv\Scripts\python.exe' }
 # Which app owns Home differs by build; ask the TV, but only accept a launcher we recognise (the answer
 # can also be Android's chooser "android", the setup wizard, or another third-party launcher).
 $knownStock = @('com.google.android.tvlauncher', 'com.google.android.apps.tv.launcherx', 'com.google.android.leanbacklauncher', 'com.mitv.tvhome')
